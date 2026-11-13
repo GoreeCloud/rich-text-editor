@@ -21,11 +21,46 @@ unset WAYLAND_DISPLAY
 icd=$(find /usr/share/vulkan/icd.d -name '*lvp*.json' -print -quit 2>/dev/null || :)
 if [[ -n "$icd" ]]; then export VK_ICD_FILENAMES="$icd"; fi
 export GOREECLOUD_SMOKE_APP="$app" GOREECLOUD_SMOKE_ROOT="$sandbox"
+
+# The AppImage --extract-and-run helper can outlive its launcher after Xvfb
+# exits. Terminate only binaries inheriting THIS unique sandbox marker,
+# including reparented helper descendants, before removing their log files.
+cleanup_smoke() {
+  local p pid exe
+  local -a owned=()
+  for p in /proc/[0-9]*/environ; do
+    pid=${p#/proc/}
+    pid=${pid%/environ}
+    # Avoid opening other processes' private environ files.
+    [[ $(cat "/proc/$pid/comm" 2>/dev/null || :) == goreecloud_rich* ]] || continue
+    if tr '\0' '\n' < "$p" 2>/dev/null | grep -Fxq "GOREECLOUD_SMOKE_ROOT=$sandbox"; then
+      exe=$(readlink "/proc/$pid/exe" 2>/dev/null || :)
+      if [[ "$exe" == */goreecloud_rich_text_editor* ]]; then
+        owned+=("$pid")
+      fi
+    fi
+  done
+  for pid in "${owned[@]}"; do kill -TERM "$pid" 2>/dev/null || :; done
+  if (("${#owned[@]}" > 0)); then sleep .3; fi
+  for pid in "${owned[@]}"; do
+    exe=$(readlink "/proc/$pid/exe" 2>/dev/null || :)
+    if [[ "$exe" == */goreecloud_rich_text_editor* ]]; then
+      kill -KILL "$pid" 2>/dev/null || :
+    fi
+  done
+  rm -rf -- "$sandbox"
+}
+trap cleanup_smoke EXIT
+
 set +e
 timeout --signal=TERM --kill-after=3s 35s xvfb-run -a -s "-screen 0 1280x800x24" bash -c '
   set -euo pipefail
-  "$GOREECLOUD_SMOKE_APP" >"$GOREECLOUD_SMOKE_ROOT/logs/launch.out" 2>&1 &
+  # Bound the diagnostic log without imposing a file-size limit on the
+  # application itself (fonts/GPU caches may legitimately exceed 8 MiB).
+  "$GOREECLOUD_SMOKE_APP" > >(head -c 1048576 > "$GOREECLOUD_SMOKE_ROOT/logs/launch.out") 2>&1 &
   child=$!
+  # The extracted process may outlive this wrapper; the outer trap also
+  # finds that process by its unique GOREECLOUD_SMOKE_ROOT marker.
   trap "kill -TERM $child 2>/dev/null || :; wait $child 2>/dev/null || :" EXIT
   found=0
   for i in $(seq 1 80); do

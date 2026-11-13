@@ -48,6 +48,8 @@ checks = {
     "Linux app identity": "Name=GoreeCloud Rich Text Editor" in read("packaging/linux/com.goreecloud.richtexteditor.desktop"),
     "AppImage launcher calls renamed binary": 'exec "$appdir/usr/bin/goreecloud_rich_text_editor" "$@"' in read("packaging/linux/AppRun"),
     "AppImage launcher is smoke-tested": "AppImage launcher smoke test passed" in read("scripts/package-appimage.sh"),
+    "GUI smoke reaps orphaned AppImage processes": "cleanup_smoke()" in read("scripts/smoke-linux-appimage.sh") and "GOREECLOUD_SMOKE_ROOT=$sandbox" in read("scripts/smoke-linux-appimage.sh"),
+    "GUI smoke caps diagnostic output": "head -c 1048576" in read("scripts/smoke-linux-appimage.sh"),
     "release artifact audit wired across platforms": read(".github/workflows/ci.yml").count("scripts/audit-release-artifacts.py") == 3,
     "signed macOS release gate": "GOREECLOUD_RELEASE_ENABLED" in read("scripts/release.sh") and "TeamIdentifier=" in read("scripts/release.sh"),
     "signed Windows publisher pinned": "GOREECLOUD_WINDOWS_CERT_SUBJECT" in read("scripts/package-windows.ps1"),
