@@ -13,6 +13,10 @@ ROOT = Path(__file__).resolve().parent.parent
 def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
+def production_rust(path: str) -> str:
+    """Ignore unit-test fixtures when checking executable settings and security flags."""
+    return read(path).split("#[cfg(test)]", 1)[0]
+
 GUIDE = "goreecloud-rich-text-editor-cheatsheet.pdf"
 GUIDE_SOURCE = ROOT / "shared-mock/guides/assets" / GUIDE
 GUIDE_BUNDLED = ROOT / "shared-mock/library/assets/guides" / GUIDE
@@ -22,10 +26,10 @@ checks = {
     "binary name": 'name = "goreecloud_rich_text_editor"' in read("Cargo.toml"),
     "independent notes directory": '.join("GoreeCloud Rich Text Editor")' in read("crates/core/src/store.rs"),
     "upstream auto-updates disabled": 'const UPDATES_CONFIGURED: bool = false;' in read("src/update.rs"),
-    "private new-library web image default": "remote_images: false" in read("src/settings.rs"),
-    "private new-library updater default": "auto_update: false" in read("src/settings.rs"),
-    "web image redirects protocol restricted": '"--proto-redir", "=http,https"' in read("src/editor/image.rs"),
-    "web image downloads capped": '"--max-filesize", "20971520"' in read("src/editor/image.rs"),
+    "private new-library web image default": "remote_images: false" in production_rust("src/settings.rs"),
+    "private new-library updater default": "auto_update: false" in production_rust("src/settings.rs"),
+    "web image redirects protocol restricted": '"--proto-redir", "=http,https"' in production_rust("src/editor/image.rs"),
+    "web image downloads capped": '"--max-filesize", "20971520"' in production_rust("src/editor/image.rs"),
     "no upstream update endpoints": "download.quiet.md" not in read("src/update.rs").split("#[cfg(test)]")[0],
     "safe update placeholder": 'const BASE: &str = "https://updates.invalid/latest";' in read("src/update.rs"),
     "GoreeCloud package naming": 'goreecloud-rich-text-editor-{version}' in read("src/update.rs"),
