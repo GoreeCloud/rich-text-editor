@@ -16,7 +16,7 @@ GoreeCloud Rich Text Editor is a rebranded import of the open-source [Quiet.md](
 
 ## Note formats and privacy
 
-The application supports Markdown documents and Feishu/Lark DocxXML documents. **Not all notes are stored as Markdown by default**; the underlying library can store DocxXML, while Markdown files can be edited directly. Files stay local by default.
+The application supports Markdown documents and Feishu/Lark DocxXML documents. **Not all notes are stored as Markdown by default**; the underlying library can store DocxXML, while Markdown files can be edited directly. Files stay local by default. **Web images are not fetched automatically in new libraries**; you can enable remote images in Settings or load an individual image explicitly. Remote image transfers are limited to HTTP(S) and 20 MiB.
 
 The rebranded application's default library location is:
 - `~/Documents/GoreeCloud Rich Text Editor` (where the Documents directory is available).

@@ -49,3 +49,7 @@ Linux AppImage packaging smoke-tests the extracted `AppRun` launcher with an iso
 The first-launch guide includes an original GoreeCloud-branded one-page PDF quick reference. The guide's source and bundled assets must remain byte-identical; `rebrand_guard.py` enforces this.
 
 The Windows installer, macOS app/DMG, Linux tarball, and AppImage must all ship both `LICENSE` and `THIRD_PARTY.md`; the Linux tarball packaging step verifies its output archive contents.
+
+## Web-image privacy baseline
+
+New libraries start with remote-image fetching and automatic update checks off. User preferences explicitly saved as enabled remain enabled, but the release updater itself stays disabled until separately configured. Optional web-image downloads accept HTTP(S) only, follow only HTTP(S) redirects, cap transfers at 20 MiB, and time out. CI tests both preference persistence and the restricted curl command line without contacting external hosts.
