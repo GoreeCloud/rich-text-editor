@@ -33,6 +33,8 @@ cargo run --release
 
 You can also use `scripts/check.sh` for the upstream test and lint workflow. Platform packaging lives in `scripts/` and `packaging/`.
 
+See [Release readiness](docs/RELEASE_READINESS.md) for verification and distribution requirements.
+
 **Updates:** upstream auto-updates are disabled in this import. GoreeCloud-specific distribution, signing, update metadata, and install testing must be configured before releases are enabled.
 
 ## Origin and licensing

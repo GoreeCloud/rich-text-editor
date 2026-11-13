@@ -7,7 +7,7 @@ edition = "2024"
 description = "The document engine behind GoreeCloud Rich Text Editor: model, DocxXML, editing core, library"
 license = "MIT"
 readme = "../../README.md"
-authors = ["GoreeCloud"]
+authors = ["s1dashu", "GoreeCloud"]
 
 [dependencies]
 anyhow = "1.0.104"

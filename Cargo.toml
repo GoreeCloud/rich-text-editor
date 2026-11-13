@@ -5,7 +5,7 @@ edition = "2024"
 description = "Local-first desktop notes, Markdown editing and viewing, and rich-text writing for macOS, Windows and Linux"
 license = "MIT"
 readme = "README.md"
-authors = ["GoreeCloud"]
+authors = ["s1dashu", "GoreeCloud"]
 keywords = ["notes", "markdown", "editor", "gpui", "local-first"]
 categories = ["text-editors"]
 

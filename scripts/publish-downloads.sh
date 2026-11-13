@@ -1,5 +1,5 @@
 #!/bin/bash
-# Upload release packages to the download.quiet.md R2 bucket: an immutable copy under v<version>/ and the
+# Upload release packages to the separately configured GoreeCloud R2 bucket: an immutable copy under v<version>/ and the
 # fixed latest/ link the site and README point at. Pass the macOS ZIP, the Windows installer, or both:
 #   scripts/publish-downloads.sh dist-release.XXXX/goreecloud-rich-text-editor-0.1.2-macos-arm64.zip dist/windows/signed/goreecloud-rich-text-editor-0.1.2-windows-x64-setup.exe
 # Each package is signed with minisign (MINISIGN_KEY, default ~/.minisign/goreecloud-rich-text-editor.key) and checked against
