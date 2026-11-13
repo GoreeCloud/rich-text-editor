@@ -4,7 +4,7 @@
   "name": "goreecloud-rich-text-editor-stats",
   "main": "src/index.js",
   "compatibility_date": "2026-10-01",
-  "workers_dev": false,
+  "workers_dev": true,
   // 00:30 UTC: yesterday's analytics are complete by then.
   "triggers": { "crons": ["30 0 * * *"] },
   "d1_databases": [

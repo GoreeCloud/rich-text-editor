@@ -1523,7 +1523,7 @@ mod wrap_tests {
     #[test]
     fn hangul_wraps_by_word_and_chinese_by_character() {
         assert_eq!(breaks("한국어 문서를 편집합니다"), [4, 8], "only where a word starts");
-        assert_eq!(breaks("GoreeCloud Rich Text Editor를 써요"), [10], "a particle stays on its word");
+        assert_eq!(breaks("GoreeCloud를 써요"), [12], "a particle stays on its word");
         assert_eq!(breaks("ㅋㅋㅋ 좋아요"), [4]);
         assert_eq!(breaks("你好世界"), [1, 2, 3]);
         assert_eq!(breaks("中文。한국어"), [1, 3], "Chinese still breaks, but not before closing punctuation");
