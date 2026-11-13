@@ -27,6 +27,7 @@ if not re.fullmatch(r"[A-Za-z0-9._-]{3,128}", bucket):
     raise SystemExit("Invalid GOREECLOUD_DOWNLOAD_BUCKET")
 print("Release host and bucket shape validated; verify domain ownership before publishing.")
 PYTHON
+host=${host%/}
 wrangler=${WRANGLER:-npx -y wrangler@4}
 key=${MINISIGN_KEY:-$HOME/.minisign/goreecloud-rich-text-editor.key}
 pub=packaging/update-key.pub

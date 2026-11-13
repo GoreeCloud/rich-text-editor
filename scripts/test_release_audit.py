@@ -112,6 +112,29 @@ class ReleaseAuditTests(unittest.TestCase):
                 with self.subTest(path=path.name):
                     with self.assertRaisesRegex(ValueError, "distribution disabled"): audit.audit(path, True)
 
+    def test_distribution_rejects_unsigned_mac_even_with_release_gate(self):
+        path = self.macos("arm64")
+        with patch.dict(os.environ, {
+            "GOREECLOUD_RELEASE_ENABLED": "yes",
+            "GOREECLOUD_DOWNLOAD_HOST": "https://releases.example.com",
+            "GOREECLOUD_DOWNLOAD_BUCKET": "test-candidate-bucket",
+        }):
+            with self.assertRaisesRegex(ValueError, "ad-hoc macOS CI package"):
+                audit.audit(path, True)
+
+    def test_distribution_rejects_invalid_https_host_shapes(self):
+        path = self.appimage()
+        for host in ["http://releases.example.com", "https://updates.invalid",
+                     "https://download.quiet.md", "https://alice:secret@releases.example.com",
+                     "https://releases.example.com/unexpected/path"]:
+            with self.subTest(host=host), patch.dict(os.environ, {
+                "GOREECLOUD_RELEASE_ENABLED": "yes",
+                "GOREECLOUD_DOWNLOAD_HOST": host,
+                "GOREECLOUD_DOWNLOAD_BUCKET": "test-candidate-bucket",
+            }):
+                with self.assertRaisesRegex(ValueError, "HTTPS origin"):
+                    audit.audit(path, True)
+
     def test_distribution_rejects_placeholder_hosts(self):
         path=self.appimage()
         with patch.dict(os.environ,{"GOREECLOUD_RELEASE_ENABLED":"yes",

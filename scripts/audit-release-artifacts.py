@@ -132,7 +132,9 @@ def verify_distribution(path: Path, platform: str) -> None:
         team = os.environ.get("GOREECLOUD_APPLE_TEAM_ID", "")
         if not re.fullmatch(r"[A-Z0-9]{10}", team): fail("GOREECLOUD_APPLE_TEAM_ID is required")
         with tempfile.TemporaryDirectory(prefix="goreecloud-macos-release-") as d:
-            with zipfile.ZipFile(path) as z: z.extractall(d)
+            # macOS ditto preserves signing metadata and symlinks that Python's
+            # zipfile extraction may alter, which would cause false failures.
+            subprocess.run(["ditto", "-x", "-k", str(path), d], check=True)
             apps = list(Path(d).glob("*.app"))
             if len(apps) != 1: fail("unexpected signed app bundle layout")
             app = str(apps[0])
