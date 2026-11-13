@@ -445,7 +445,7 @@ mod tests {
 
     #[test]
     fn import_cannot_use_upstream_update_channel() {
-        assert!(!UPDATES_CONFIGURED);
+        const { assert!(!UPDATES_CONFIGURED); }
         assert_eq!(BASE, "https://updates.invalid/latest");
         assert_eq!(PACKAGES, "https://updates.invalid/");
         assert!(public_key().is_none());
