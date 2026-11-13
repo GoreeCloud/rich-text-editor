@@ -58,6 +58,12 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
           env-vars: MACOSX_DEPLOYMENT_TARGET
 
+      - name: Check macOS signing and notarization script syntax
+        if: steps.filter.outputs.skip != 'true'
+        run: |
+          bash -n scripts/release.sh scripts/publish-downloads.sh
+          zsh -n scripts/package.sh
+
       - name: Build application
         if: steps.filter.outputs.skip != 'true'
         run: cargo build --release --locked
@@ -86,6 +92,12 @@ jobs:
         run: |
           sudo softwareupdate --install-rosetta --agree-to-license
           cargo test --release --locked --target x86_64-apple-darwin --bin goreecloud_rich_text_editor update::tests
+
+      - name: Audit macOS package contents and checksums
+        if: steps.filter.outputs.skip != 'true'
+        run: |
+          python3 -B scripts/test_release_audit.py
+          python3 -B scripts/audit-release-artifacts.py dist-release.*/goreecloud-rich-text-editor-*-macos-*-unsigned.zip
 
       - name: Upload macOS validation packages
         if: steps.filter.outputs.skip != 'true'
@@ -129,6 +141,17 @@ jobs:
         if: steps.filter.outputs.skip != 'true'
         run: rustup component add clippy
 
+      - name: Parse Windows signing scripts
+        if: steps.filter.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          foreach ($path in @('scripts/package-windows.ps1', 'scripts/sign-windows-file.ps1')) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) { throw "PowerShell parsing failed for $path : $errors" }
+          }
+
       - name: Build and check with Windows SDK
         if: steps.filter.outputs.skip != 'true'
         shell: pwsh
@@ -145,6 +168,17 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Windows checks failed' }
           & scripts/package-windows.ps1 -Iscc "${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe"
           if ($LASTEXITCODE -ne 0) { throw 'Windows packaging failed' }
+
+      - name: Audit unsigned Windows setup executable
+        if: steps.filter.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          python scripts/test_release_audit.py
+          if ($LASTEXITCODE -ne 0) { throw 'Release auditor tests failed' }
+          $packages = @(Get-ChildItem dist/windows/unsigned -Filter '*.exe')
+          if ($packages.Count -ne 1) { throw 'Expected exactly one unsigned validation installer' }
+          python scripts/audit-release-artifacts.py $packages[0].FullName
+          if ($LASTEXITCODE -ne 0) { throw 'Windows artifact audit failed' }
 
       - name: Upload Windows installer
         if: steps.filter.outputs.skip != 'true'
@@ -211,6 +245,12 @@ jobs:
       - name: Smoke-test real AppImage in isolated X11 session
         if: steps.filter.outputs.skip != 'true'
         run: scripts/smoke-linux-appimage.sh dist/linux/goreecloud-rich-text-editor-*-x86_64.AppImage
+
+      - name: Audit Linux package checksums and contents
+        if: steps.filter.outputs.skip != 'true'
+        run: |
+          python3 -B scripts/test_release_audit.py
+          python3 -B scripts/audit-release-artifacts.py dist/linux/goreecloud-rich-text-editor-*-linux-x86_64.tar.gz dist/linux/goreecloud-rich-text-editor-*-x86_64.AppImage
 
       - name: Upload Linux packages
         if: steps.filter.outputs.skip != 'true'

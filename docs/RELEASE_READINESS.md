@@ -53,3 +53,9 @@ The Windows installer, macOS app/DMG, Linux tarball, and AppImage must all ship 
 ## Web-image privacy baseline
 
 New libraries start with remote-image fetching and automatic update checks off. User preferences explicitly saved as enabled remain enabled, but the release updater itself stays disabled until separately configured. Optional web-image downloads accept HTTP(S) only, follow only HTTP(S) redirects, cap transfers at 20 MiB, and time out. CI tests both preference persistence and the restricted curl command line without contacting external hosts.
+
+## Release process and signature verification
+
+The [release operations runbook](RELEASE_OPERATIONS.md) contains platform-specific Developer ID/Apple notarization, Windows Authenticode and RFC 3161 timestamps, Linux minisign and GoreeCloud-owned R2 release-host steps. `scripts/audit-release-artifacts.py` checks validation package filenames, expected version, SHA-256 and inner contents on all platforms; in `--distribution` mode it refuses release approval without real signing, hosting configuration and native signature verification. `scripts/test_release_audit.py` supplies synthetic positive and negative examples.
+
+The existing Linux desktop has been visually checked on a real hardware-backed desktop using a **disposable isolated notes library** and an app-only screenshot. The sidebar, text, document cards and images rendered; this does not replace full interaction, printing, accessibility or macOS/Windows installation tests. No signing certificates or notarization credentials have been connected, and the update channel remains disabled.

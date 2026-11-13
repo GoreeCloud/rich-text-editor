@@ -13,6 +13,20 @@ cd "$(dirname "$0")/.."
 [ $# -ge 1 ] || { sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 1; }
 bucket=${GOREECLOUD_DOWNLOAD_BUCKET:?Set GoreeCloud download bucket}
 host=${GOREECLOUD_DOWNLOAD_HOST:?Set GoreeCloud download host}
+python3 - "$host" "$bucket" <<'PYTHON'
+import re, sys
+from urllib.parse import urlsplit
+host, bucket = sys.argv[1:]
+u = urlsplit(host)
+if (u.scheme != "https" or not u.hostname or u.username or u.password or u.query or u.fragment
+        or u.path not in ("", "/") or not u.netloc or "quiet.md" in u.hostname
+        or u.hostname.endswith((".invalid", ".localhost", ".local", ".test"))
+        or u.hostname in ("localhost", "127.0.0.1")):
+    raise SystemExit("GOREECLOUD_DOWNLOAD_HOST must be a GoreeCloud-owned HTTPS origin")
+if not re.fullmatch(r"[A-Za-z0-9._-]{3,128}", bucket):
+    raise SystemExit("Invalid GOREECLOUD_DOWNLOAD_BUCKET")
+print("Release host and bucket shape validated; verify domain ownership before publishing.")
+PYTHON
 wrangler=${WRANGLER:-npx -y wrangler@4}
 key=${MINISIGN_KEY:-$HOME/.minisign/goreecloud-rich-text-editor.key}
 pub=packaging/update-key.pub
@@ -44,10 +58,8 @@ for file in "$@"; do
   version=${name#goreecloud-rich-text-editor-}; version=${version%%-*}
   [ "$version" = "$expected" ] || { echo "$name is $version but Cargo.toml says $expected" >&2; exit 1; }
   [ -f "$file" ] || { echo "Missing $file" >&2; exit 1; }
-  # Refuse a package that does not match the checksum written next to it by the build scripts.
-  if [ -f "$file.sha256" ]; then
-    (cd "$(dirname "$file")" && shasum -a 256 -c "$name.sha256" >/dev/null) || { echo "Checksum mismatch: $file" >&2; exit 1; }
-  fi
+  # Reject a tampered or incomplete package before using signing keys or uploading.
+  python3 -B scripts/audit-release-artifacts.py "$file" || { echo "Package audit failed: $file" >&2; exit 1; }
   # The trusted comment is the file name: the app accepts the signature only for the version the manifest names.
   sig="$work/$name.minisig"
   if [ -z "${DRY_RUN:-}" ]; then
@@ -62,7 +74,11 @@ for file in "$@"; do
   put "v$version/$name.minisig" "$sig" "text/plain; charset=utf-8" "public, max-age=31536000, immutable"
   # latest/ keeps a stable URL; the download still saves under the versioned file name.
   put "latest/$latest" "$file" "$type" "public, max-age=300" "attachment; filename=\"$name\""
-  size=$(stat -f %z "$file")
+  size=$(python3 - "$file" <<'PYTHON'
+import os, sys
+print(os.path.getsize(sys.argv[1]))
+PYTHON
+)
   manifest="$work/update-$platform.json"
   python3 - "$version" "$host/v$version/$name" "$size" "$sig" > "$manifest" <<'PYTHON'
 import json, sys
