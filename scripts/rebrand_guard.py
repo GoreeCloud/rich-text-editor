@@ -25,6 +25,7 @@ checks = {
     "original mascot not bundled": not (ROOT / "assets/branding/hamster-source.png").exists(),
     "old monogram not bundled": not (ROOT / "assets/branding/quiet-q").exists(),
     "Windows app identity": "AppName=GoreeCloud Rich Text Editor" in read("packaging/windows/goreecloud-rich-text-editor.iss"),
+    "Windows signing tool matches installer": "SignTool=goreecloudrte" in read("packaging/windows/goreecloud-rich-text-editor.iss") and "/Sgoreecloudrte=" in read("scripts/package-windows.ps1"),
     "Linux app identity": "Name=GoreeCloud Rich Text Editor" in read("packaging/linux/com.goreecloud.richtexteditor.desktop"),
     "release publishing gated": "GOREECLOUD_RELEASE_ENABLED" in read("scripts/publish-downloads.sh"),
     "analytics deployment neutralized": not (ROOT / "services/stats/wrangler.jsonc").exists(),
