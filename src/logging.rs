@@ -9,7 +9,7 @@ use std::sync::{Mutex, OnceLock};
 static FILE: OnceLock<Mutex<File>> = OnceLock::new();
 static OPENED: OnceLock<PathBuf> = OnceLock::new();
 
-/// `~/Library/Logs/quiet.md` on macOS, `%LOCALAPPDATA%\quiet.md\logs` on
+/// `~/Library/Logs/goreecloud-rich-text-editor` on macOS, `%LOCALAPPDATA%\quiet.md\logs` on
 /// Windows; independent of where the program itself lives.
 pub fn dir() -> PathBuf {
     if let Some(d) = std::env::var_os("GOREECLOUD_RTE_LOG_DIR") { return PathBuf::from(d) }
