@@ -2052,18 +2052,33 @@ impl Editor {
     }
 }
 
+/// Only HTTP(S) web images can be fetched. Restrict redirect protocols too:
+/// curl follows redirects, and file URLs must never read local data.
+/// The 20 MiB transfer cap matches the limit for images inserted from disk.
+fn web_image_url(url: &str) -> bool {
+    url.starts_with("https://") || url.starts_with("http://")
+}
+
+fn image_download_command(url: &str, dest: &Path) -> std::process::Command {
+    let mut cmd = std::process::Command::new("curl");
+    cmd.args(["--fail", "--silent", "--show-error", "--location",
+        "--max-time", "60", "--connect-timeout", "10", "--max-redirs", "5",
+        "--proto", "=http,https", "--proto-redir", "=http,https",
+        "--max-filesize", "20971520", "--output"]);
+    cmd.arg(dest).arg("--").arg(url);
+    cmd.stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    cmd
+}
+
 fn download(url: &str, dest: &Path) -> bool {
+    if !web_image_url(url) { return false; }
     if let Some(d) = dest.parent() {
         let _ = std::fs::create_dir_all(d);
     }
     let tmp = dest.with_extension("part");
-    let fetched = std::process::Command::new("curl")
-        .args(["-fsSL", "--max-time", "60", "-o"])
-        .arg(&tmp)
-        .arg(url)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
+    let fetched = image_download_command(url, &tmp)
         .status()
         .is_ok_and(|s| s.success());
     let ok = fetched
@@ -2224,7 +2239,7 @@ pub(crate) fn localize_pasted_images(blocks: &mut Vec<Block>) {
 
 #[cfg(test)]
 mod tests {
-    use super::{cap, clipboard_image_data, decode, BAD_DIMS};
+    use super::{cap, clipboard_image_data, decode, image_download_command, web_image_url, BAD_DIMS};
     use gpui::ImageFormat;
 
     fn photo(dir: &std::path::Path, w: u32, h: u32) -> std::path::PathBuf {
@@ -2232,6 +2247,30 @@ mod tests {
         let im = image::RgbImage::from_fn(w, h, |x, y| image::Rgb([(x % 251) as u8, (y % 241) as u8, ((x + y) % 239) as u8]));
         image::DynamicImage::ImageRgb8(im).save_with_format(&p, image::ImageFormat::Jpeg).unwrap();
         p
+    }
+
+    #[test]
+    fn remote_image_downloads_are_http_only_bounded_and_redirect_safe() {
+        let dest = std::path::Path::new("test.png.part");
+        for url in ["file:///etc/passwd", "ftp://example.com/a.png", "data:image/png;base64,a"] {
+            assert!(!web_image_url(url), "{url}");
+        }
+        for url in ["https://example.com/image.png", "http://localhost:3000/image.webp"] {
+            assert!(web_image_url(url));
+        }
+        let cmd = image_download_command("https://example.com/image.png", dest);
+        let args: Vec<_> = cmd.get_args().map(|s| s.to_string_lossy().into_owned()).collect();
+        for (key, value) in [
+            ("--proto", "=http,https"),
+            ("--proto-redir", "=http,https"),
+            ("--max-filesize", "20971520"),
+            ("--max-time", "60"),
+            ("--max-redirs", "5"),
+            ("--connect-timeout", "10"),
+        ] {
+            assert!(args.windows(2).any(|pair| pair[0] == key && pair[1] == value), "{key}: {args:?}");
+        }
+        assert_eq!(&args[args.len()-3..], &["test.png.part", "--", "https://example.com/image.png"]);
     }
 
     #[test]

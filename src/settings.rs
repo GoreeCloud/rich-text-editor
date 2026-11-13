@@ -132,7 +132,7 @@ fn system_lang() -> Lang {
 impl Default for Preferences {
     fn default() -> Self {
         let lang = system_lang();
-        Preferences { theme: String::new(), feishu: true, english: lang != Lang::Zh, language: lang.code().into(), remote_images: true, quick_hotkey: true, auto_update: true, appearance: String::new(), seen_version: String::new(), motion: String::new(), new_default: String::new(), last_new: String::new(), search_engine: String::new(), browser: String::new(), opaque_window: false, ui_font: String::new() }
+        Preferences { theme: String::new(), feishu: true, english: lang != Lang::Zh, language: lang.code().into(), remote_images: false, quick_hotkey: true, auto_update: false, appearance: String::new(), seen_version: String::new(), motion: String::new(), new_default: String::new(), last_new: String::new(), search_engine: String::new(), browser: String::new(), opaque_window: false, ui_font: String::new() }
     }
 }
 
@@ -1523,6 +1523,17 @@ mod localization_tests {
 #[cfg(test)]
 mod preference_tests {
     use super::Preferences;
+
+    #[test]
+    fn new_libraries_are_offline_by_default_but_preserve_explicit_opt_in() {
+        let defaults = Preferences::default();
+        assert!(!defaults.remote_images, "remote image requests require an explicit opt-in");
+        assert!(!defaults.auto_update, "release updates are not configured");
+        let opted_in: Preferences = serde_json::from_str(r#"{"remote_images":true,"auto_update":true}"#).unwrap();
+        assert!(opted_in.remote_images && opted_in.auto_update, "existing user choices must be preserved");
+        let legacy: Preferences = serde_json::from_str("{}").unwrap();
+        assert!(!legacy.remote_images && !legacy.auto_update);
+    }
 
     #[test]
     fn new_preferences_use_feishu_without_overriding_saved_themes() {
