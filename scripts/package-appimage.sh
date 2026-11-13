@@ -34,6 +34,19 @@ chmod +x "$OUTPUT"
 # Inspect the packaged payload, not only the original executable.
 (cd "$stage" && "$OUTPUT" --appimage-extract >/dev/null)
 test -x "$stage/squashfs-root/AppRun"
+# Smoke-test the *extracted* AppImage launcher with a stub program so the
+# check exercises the shipped AppRun without starting the GUI or accessing notes.
+probe="$stage/launcher-smoke"
+mkdir -p "$probe/usr/bin" "$probe/usr/share/X11/locale"
+cp "$stage/squashfs-root/AppRun" "$probe/AppRun"
+cat > "$probe/usr/bin/goreecloud_rich_text_editor" <<'LAUNCH_PROBE'
+#!/bin/sh
+set -eu
+[ "$#" -eq 2 ] && [ "$1" = "--goreecloud-launcher-probe" ] && [ "$2" = "argument with spaces" ] && [ "$XLOCALEDIR" = "$GOREECLOUD_EXPECTED_XLOCALEDIR" ]
+LAUNCH_PROBE
+chmod +x "$probe/AppRun" "$probe/usr/bin/goreecloud_rich_text_editor"
+GOREECLOUD_EXPECTED_XLOCALEDIR="$probe/usr/share/X11/locale" "$probe/AppRun" --goreecloud-launcher-probe "argument with spaces"
+echo "AppImage launcher smoke test passed"
 payload="$stage/squashfs-root/usr/bin/goreecloud_rich_text_editor"
 LD_LIBRARY_PATH="$stage/squashfs-root/usr/lib" ldd "$payload" > "$OUTPUT.libraries.txt"
 if grep -q 'not found' "$OUTPUT.libraries.txt"; then cat "$OUTPUT.libraries.txt" >&2; exit 1; fi

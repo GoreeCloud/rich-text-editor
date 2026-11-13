@@ -1,22 +1,10 @@
-//! 自动更新. A copy installed from a release package reads
-//! `https://download.quiet.md/latest/update-<platform>.json` (written last by
-//! scripts/publish-downloads.sh) 10s after launch and every 12h while
-//! 自动检查更新 is on; 检查更新… asks at once. Nothing is downloaded until the
-//! user asks: the package is fetched with `curl`, its minisign signature checked
-//! against packaging/update-key.pub (the trusted comment must be the package's
-//! own file name, so an old signed package cannot pose as a newer version),
-//! and on macOS the unpacked app must also carry this copy's code signature
-//! team. 重启以更新 quits through the usual save path; a detached helper waits
-//! for this process to exit, then swaps the bundle (macOS) or runs the Inno
-//! installer silently (Windows), or replaces the AppImage (Linux), then restarts.
-//!
-//! The manifest itself is not signed, so what it may say is narrowed (#41): the
-//! package must come from download.quiet.md over HTTPS (redirects included), and
-//! its signature's trusted comment must name that package, version and all.
-//!
-//! `GOREECLOUD_RTE_UPDATE_URL` points the check at another folder (testing; it also
-//! enables the check in unsigned builds, and allows http and any host). The public key can be replaced at
-//! build time with `GOREECLOUD_RTE_UPDATE_PUBKEY`.
+//! Source-import updater. GoreeCloud has not configured a signed release channel.
+//! In-app update checks stay disabled until a GoreeCloud-owned download host,
+//! minisign public key, and signed installers have been configured and tested.
+//! The .invalid URL below is a deliberately unusable placeholder, not an
+//! upstream update endpoint; test fixtures use it without making requests.
+//! The signature must name the exact platform package and version. Installed
+//! packages must also satisfy platform-specific signing and update checks.
 
 use gpui::*;
 use serde::Deserialize;
@@ -25,10 +13,10 @@ use std::process::{Command, Stdio};
 use std::time::Duration;
 
 const UPDATES_CONFIGURED: bool = false; // Enable only after GoreeCloud signs and publishes its own releases.
-const BASE: &str = "https://download.quiet.md/latest";
+const BASE: &str = "https://updates.invalid/latest";
 /// Where every package lives (`v<version>/<name>`); a manifest naming any
 /// other host is refused.
-const PACKAGES: &str = "https://download.quiet.md/";
+const PACKAGES: &str = "https://updates.invalid/";
 const KEY: &str = match option_env!("GOREECLOUD_RTE_UPDATE_PUBKEY") { Some(k) => k, None => include_str!("../packaging/update-key.pub") };
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
@@ -177,9 +165,9 @@ fn platform() -> Option<&'static str> {
 }
 
 fn package_name(version: &str, platform: &str) -> String {
-    if platform.starts_with("windows") { format!("quiet-md-{version}-{platform}-setup.exe") }
-    else if platform == "linux-x86_64" { format!("quiet-md-{version}-x86_64.AppImage") }
-    else { format!("quiet-md-{version}-{platform}.zip") }
+    if platform.starts_with("windows") { format!("goreecloud-rich-text-editor-{version}-{platform}-setup.exe") }
+    else if platform == "linux-x86_64" { format!("goreecloud-rich-text-editor-{version}-x86_64.AppImage") }
+    else { format!("goreecloud-rich-text-editor-{version}-{platform}.zip") }
 }
 
 fn override_url() -> Option<String> { std::env::var("GOREECLOUD_RTE_UPDATE_URL").ok().filter(|u| !u.is_empty()) }
@@ -371,7 +359,7 @@ fn start_installer(new: &Path) -> Result<(), String> {
 }
 
 /// PowerShell waits for this process, then runs the installer silently;
-/// `/UPDATE=1` makes it start the app again (packaging/windows/quiet-md.iss).
+/// `/UPDATE=1` makes it start the app again (packaging/windows/goreecloud-rich-text-editor.iss).
 #[cfg(target_os = "windows")]
 fn start_installer(setup: &Path) -> Result<(), String> {
     let quote = |s: &str| format!("'{}'", s.replace('\'', "''"));
@@ -426,7 +414,7 @@ fn start_installer(new: &Path) -> Result<(), String> {
     let parent = app.parent().ok_or("parent")?;
     let metadata = std::fs::metadata(&app).map_err(|e| e.to_string())?;
     let identity = format!("{}:{}", metadata.dev(), metadata.ino());
-    let stage = parent.join(format!(".quiet-md-update-{}", uuid::Uuid::new_v4()));
+    let stage = parent.join(format!(".goreecloud-rte-update-{}", uuid::Uuid::new_v4()));
     std::fs::create_dir(&stage).map_err(|e| crate::localized_format!("无法在 {} 准备更新，请确认目录可写：{}", "Could not prepare the update in {}. Check directory permissions: {}", parent.display(), e))?;
     let result = (|| -> Result<(), String> {
         std::fs::set_permissions(&stage, std::fs::Permissions::from_mode(0o700)).map_err(|e| e.to_string())?;
@@ -453,10 +441,27 @@ fn start_installer(_: &Path) -> Result<(), String> { Err("unsupported".into()) }
 
 #[cfg(test)]
 mod tests {
-    use super::{newer, signed, validate, Manifest};
+    use super::{newer, signed, validate, package_name, public_key, Manifest, BASE, PACKAGES, UPDATES_CONFIGURED};
+
+    #[test]
+    fn import_cannot_use_upstream_update_channel() {
+        assert!(!UPDATES_CONFIGURED);
+        assert_eq!(BASE, "https://updates.invalid/latest");
+        assert_eq!(PACKAGES, "https://updates.invalid/");
+        assert!(public_key().is_none());
+    }
+
+    #[test]
+    fn package_names_match_goreecloud_release_packaging() {
+        assert_eq!(package_name("0.2.0", "macos-arm64"), "goreecloud-rich-text-editor-0.2.0-macos-arm64.zip");
+        assert_eq!(package_name("0.2.0", "macos-x86_64"), "goreecloud-rich-text-editor-0.2.0-macos-x86_64.zip");
+        assert_eq!(package_name("0.2.0", "windows-x64"), "goreecloud-rich-text-editor-0.2.0-windows-x64-setup.exe");
+        assert_eq!(package_name("0.2.0", "linux-x86_64"), "goreecloud-rich-text-editor-0.2.0-x86_64.AppImage");
+    }
 
     #[test]
     fn versions_compare_numerically() {
+
         assert!(newer("0.1.10", "0.1.9"));
         assert!(newer("0.2", "0.1.9"));
         assert!(newer("1.0.0", "0.99.99"));
@@ -493,31 +498,31 @@ FuE4L1zQnqL1nA/5xffpEtZyK2ca882Q1joA5X11poZ1xezdAlEMfn/36MJc5C60clQFec4vQf66MoxP
 
     #[test]
     fn manifests_must_name_the_signed_package() {
-        let ok = manifest("0.2.0", "https://download.quiet.md/v0.2.0/quiet-md-0.2.0-macos-arm64.zip", "quiet-md-0.2.0-macos-arm64.zip");
+        let ok = manifest("0.2.0", "https://updates.invalid/v0.2.0/goreecloud-rich-text-editor-0.2.0-macos-arm64.zip", "goreecloud-rich-text-editor-0.2.0-macos-arm64.zip");
         assert_eq!(validate(&ok, "macos-arm64", false), Ok(()));
         assert!(validate(&ok, "macos-x86_64", false).is_err());
-        let intel = manifest("0.2.0", "https://download.quiet.md/v0.2.0/quiet-md-0.2.0-macos-x86_64.zip", "quiet-md-0.2.0-macos-x86_64.zip");
+        let intel = manifest("0.2.0", "https://updates.invalid/v0.2.0/goreecloud-rich-text-editor-0.2.0-macos-x86_64.zip", "goreecloud-rich-text-editor-0.2.0-macos-x86_64.zip");
         assert_eq!(validate(&intel, "macos-x86_64", false), Ok(()));
         assert!(validate(&intel, "macos-arm64", false).is_err());
         // An older package's signature under a newer version number.
-        let replay = manifest("0.9.0", "https://download.quiet.md/v0.2.0/quiet-md-0.2.0-macos-arm64.zip", "quiet-md-0.2.0-macos-arm64.zip");
+        let replay = manifest("0.9.0", "https://updates.invalid/v0.2.0/goreecloud-rich-text-editor-0.2.0-macos-arm64.zip", "goreecloud-rich-text-editor-0.2.0-macos-arm64.zip");
         assert!(validate(&replay, "macos-arm64", false).is_err());
-        let renamed = manifest("0.9.0", "https://download.quiet.md/v0.9.0/quiet-md-0.9.0-macos-arm64.zip", "quiet-md-0.2.0-macos-arm64.zip");
+        let renamed = manifest("0.9.0", "https://updates.invalid/v0.9.0/goreecloud-rich-text-editor-0.9.0-macos-arm64.zip", "goreecloud-rich-text-editor-0.2.0-macos-arm64.zip");
         assert!(validate(&renamed, "macos-arm64", false).is_err());
-        let http = manifest("0.2.0", "http://download.quiet.md/v0.2.0/quiet-md-0.2.0-macos-arm64.zip", "quiet-md-0.2.0-macos-arm64.zip");
+        let http = manifest("0.2.0", "http://download.quiet.md/v0.2.0/goreecloud-rich-text-editor-0.2.0-macos-arm64.zip", "goreecloud-rich-text-editor-0.2.0-macos-arm64.zip");
         assert!(validate(&http, "macos-arm64", false).is_err());
         assert_eq!(validate(&http, "macos-arm64", true), Ok(()));
         // A genuine signature does not make another host acceptable.
-        for url in ["https://evil.example/v0.2.0/quiet-md-0.2.0-macos-arm64.zip", "https://download.quiet.md.evil.example/quiet-md-0.2.0-macos-arm64.zip", "https://evil.example/download.quiet.md/quiet-md-0.2.0-macos-arm64.zip"] {
-            assert!(validate(&manifest("0.2.0", url, "quiet-md-0.2.0-macos-arm64.zip"), "macos-arm64", false).is_err(), "{url}");
+        for url in ["https://evil.example/v0.2.0/goreecloud-rich-text-editor-0.2.0-macos-arm64.zip", "https://download.quiet.md.evil.example/goreecloud-rich-text-editor-0.2.0-macos-arm64.zip", "https://evil.example/download.quiet.md/goreecloud-rich-text-editor-0.2.0-macos-arm64.zip"] {
+            assert!(validate(&manifest("0.2.0", url, "goreecloud-rich-text-editor-0.2.0-macos-arm64.zip"), "macos-arm64", false).is_err(), "{url}");
         }
-        let windows = manifest("0.2.0", "https://download.quiet.md/v0.2.0/quiet-md-0.2.0-windows-x64-setup.exe", "quiet-md-0.2.0-windows-x64-setup.exe");
+        let windows = manifest("0.2.0", "https://updates.invalid/v0.2.0/goreecloud-rich-text-editor-0.2.0-windows-x64-setup.exe", "goreecloud-rich-text-editor-0.2.0-windows-x64-setup.exe");
         assert_eq!(validate(&windows, "windows-x64", false), Ok(()));
         assert!(validate(&windows, "macos-arm64", false).is_err());
-        let linux = manifest("0.2.0", "https://download.quiet.md/v0.2.0/quiet-md-0.2.0-x86_64.AppImage", "quiet-md-0.2.0-x86_64.AppImage");
+        let linux = manifest("0.2.0", "https://updates.invalid/v0.2.0/goreecloud-rich-text-editor-0.2.0-x86_64.AppImage", "goreecloud-rich-text-editor-0.2.0-x86_64.AppImage");
         assert_eq!(validate(&linux, "linux-x86_64", false), Ok(()));
         assert!(validate(&linux, "windows-x64", false).is_err());
-        let wrong_linux = manifest("0.2.0", "https://download.quiet.md/v0.2.0/quiet-md-0.2.0-linux-x86_64.zip", "quiet-md-0.2.0-linux-x86_64.zip");
+        let wrong_linux = manifest("0.2.0", "https://updates.invalid/v0.2.0/goreecloud-rich-text-editor-0.2.0-linux-x86_64.zip", "goreecloud-rich-text-editor-0.2.0-linux-x86_64.zip");
         assert!(validate(&wrong_linux, "linux-x86_64", false).is_err());
     }
 }

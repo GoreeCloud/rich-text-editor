@@ -36,7 +36,7 @@ cat > "$app/Contents/Info.plist" <<PLIST
 <plist version="1.0"><dict>
   <key>CFBundleName</key><string>GoreeCloud Rich Text Editor</string>
   <key>CFBundleDisplayName</key><string>GoreeCloud Rich Text Editor</string>
-  <key>CFBundleIdentifier</key><string>local.quietmd.preview</string>
+  <key>CFBundleIdentifier</key><string>com.goreecloud.richtexteditor.preview</string>
   <key>CFBundleExecutable</key><string>goreecloud_rich_text_editor</string>
   <key>CFBundleIconFile</key><string>app-icon.icns</string>
   <key>CFBundlePackageType</key><string>APPL</string>

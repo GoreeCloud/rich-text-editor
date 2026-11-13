@@ -342,7 +342,7 @@ mod webview2 {
             },
             Job::Pdf(_) => None,
         };
-        let page = std::env::temp_dir().join(format!("quiet-md-print-{}.html", std::process::id()));
+        let page = std::env::temp_dir().join(format!("goreecloud-rte-print-{}.html", std::process::id()));
         std::fs::write(&page, html).map_err(|_| fail())?;
         let host = unsafe {
             CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, w!("STATIC"), PCWSTR::null(), WS_POPUP, -20000, -20000, 800, 1000, (parent != 0).then_some(owner), None, None, None)
