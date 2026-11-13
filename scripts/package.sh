@@ -35,6 +35,7 @@ cargo build --release --locked
 echo "== 组装 $app"
 rm -rf "$out"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+cp LICENSE THIRD_PARTY.md "$app/Contents/Resources/"
 cp target/release/goreecloud_rich_text_editor "$app/Contents/MacOS/goreecloud_rich_text_editor"
 # .icns：Finder 和 Dock 用图标文件，不是裸 PNG。
 iconset=$(mktemp -d)/icon.iconset

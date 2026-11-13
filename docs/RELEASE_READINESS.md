@@ -47,3 +47,5 @@ The static public landing page intentionally contains no downloadable package li
 Linux AppImage packaging smoke-tests the extracted `AppRun` launcher with an isolated stub executable and checks that the correct binary is selected with forwarded arguments. This avoids running the GUI or touching notes during CI.
 
 The first-launch guide includes an original GoreeCloud-branded one-page PDF quick reference. The guide's source and bundled assets must remain byte-identical; `rebrand_guard.py` enforces this.
+
+The Windows installer, macOS app/DMG, Linux tarball, and AppImage must all ship both `LICENSE` and `THIRD_PARTY.md`; the Linux tarball packaging step verifies its output archive contents.
