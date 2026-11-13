@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=GoreeCloud Rich Text Editor
+Comment=Local notes
+Exec=goreecloud_rich_text_editor %F
+Icon=com.goreecloud.richtexteditor
+Terminal=false
+Categories=Office;TextEditor;
+MimeType=text/markdown;text/x-markdown;
+StartupWMClass=com.goreecloud.richtexteditor

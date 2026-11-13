@@ -1,0 +1,218 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    # Docs-only pushes skip CI. Pull requests run all required check jobs,
+    # but skip expensive compilation and packaging if only docs/site files changed.
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'site/**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: test + clippy
+    # Exercise AppKit and Metal on macOS; Windows checks run separately.
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "13.0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check for code changes
+        id: filter
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED=$(gh pr diff ${{ github.event.pull_request.number }} --name-only || true)
+            if [ -n "$CHANGED" ] && ! echo "$CHANGED" | grep -q -v -E '^(.*\.md$|docs/|site/)'; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "Only docs/site/markdown changed; skipping build."
+            fi
+          fi
+
+      # rust-toolchain.toml pins the channel and asks for clippy; rustup
+      # installs both here, so local and CI use the same compiler.
+      - name: Install toolchain
+        if: steps.filter.outputs.skip != 'true'
+        run: |
+          rustup component add clippy
+          rustup target add x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        if: steps.filter.outputs.skip != 'true'
+        with:
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          env-vars: MACOSX_DEPLOYMENT_TARGET
+
+      - name: Build application
+        if: steps.filter.outputs.skip != 'true'
+        run: cargo build --release --locked
+
+      - name: Tests, bundled guides and clippy
+        if: steps.filter.outputs.skip != 'true'
+        run: scripts/check.sh
+
+      # Both packages share this ARM runner; do not allocate a second Mac job.
+      # Ad-hoc CI packages are for validation, not public distribution.
+      - name: Package Apple Silicon
+        if: steps.filter.outputs.skip != 'true'
+        env:
+          SIGNING_IDENTITY: '-'
+        run: scripts/release.sh
+
+      - name: Cross-compile and package Intel
+        if: steps.filter.outputs.skip != 'true'
+        env:
+          SIGNING_IDENTITY: '-'
+          MACOS_TARGET: x86_64-apple-darwin
+        run: scripts/release.sh
+
+      - name: Test Intel update validation under Rosetta
+        if: steps.filter.outputs.skip != 'true'
+        run: |
+          sudo softwareupdate --install-rosetta --agree-to-license
+          cargo test --release --locked --target x86_64-apple-darwin --bin goreecloud_rich_text_editor update::tests
+
+      - name: Upload macOS validation packages
+        if: steps.filter.outputs.skip != 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: macos-validation-packages
+          path: |
+            dist-release.*/quiet-md-*-macos-*-unsigned.zip
+            dist-release.*/quiet-md-*-macos-*-unsigned.zip.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+  windows-build:
+    name: Windows x64 build
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check for code changes
+        id: filter
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED=$(gh pr diff ${{ github.event.pull_request.number }} --name-only || true)
+            if [ -n "$CHANGED" ] && ! echo "$CHANGED" | grep -q -v -E '^(.*\.md$|docs/|site/)'; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "Only docs/site/markdown changed; skipping build."
+            fi
+          fi
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        if: steps.filter.outputs.skip != 'true'
+        with:
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install toolchain
+        if: steps.filter.outputs.skip != 'true'
+        run: rustup component add clippy
+
+      - name: Build and check with Windows SDK
+        if: steps.filter.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $vs = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (!$vs) { throw 'Visual Studio C++ tools were not found' }
+          Import-Module "$vs/Common7/Tools/Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+          & cargo build --release --locked
+          if ($LASTEXITCODE -ne 0) { throw 'Windows build failed' }
+          & python scripts/check.py
+          if ($LASTEXITCODE -ne 0) { throw 'Windows checks failed' }
+          & scripts/package-windows.ps1 -Iscc "${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe"
+          if ($LASTEXITCODE -ne 0) { throw 'Windows packaging failed' }
+
+      - name: Upload Windows installer
+        if: steps.filter.outputs.skip != 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: windows-x64-package
+          path: |
+            dist/windows/unsigned/quiet-md-*-windows-x64-setup.exe
+            dist/windows/unsigned/quiet-md-*-windows-x64-setup.exe.sha256
+          if-no-files-found: error
+          retention-days: 14
+
+  linux-build:
+    name: Linux x64 build + checks
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check for code changes
+        id: filter
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            CHANGED=$(gh pr diff ${{ github.event.pull_request.number }} --name-only || true)
+            if [ -n "$CHANGED" ] && ! echo "$CHANGED" | grep -q -v -E '^(.*\.md$|docs/|site/)'; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "Only docs/site/markdown changed; skipping build."
+            fi
+          fi
+
+      - name: Install dependencies
+        if: steps.filter.outputs.skip != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev libfreetype6-dev libwayland-dev libx11-xcb-dev libvulkan-dev libssl-dev python3 imagemagick fonts-noto-core fonts-noto-cjk
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        if: steps.filter.outputs.skip != 'true'
+        with:
+          cache-on-failure: true
+
+      - name: Build application
+        if: steps.filter.outputs.skip != 'true'
+        run: cargo build --release --locked
+
+      - name: Install clippy
+        if: steps.filter.outputs.skip != 'true'
+        run: rustup component add clippy
+
+      - name: Tests, bundled guides and clippy
+        if: steps.filter.outputs.skip != 'true'
+        run: python3 scripts/check.py
+
+      - name: Verify Linux package
+        if: steps.filter.outputs.skip != 'true'
+        run: scripts/package-linux.sh
+
+      - name: Build and inspect AppImage
+        if: steps.filter.outputs.skip != 'true'
+        run: scripts/package-appimage.sh
+
+      - name: Upload Linux packages
+        if: steps.filter.outputs.skip != 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: linux-x86_64-packages
+          path: dist/linux/*
+          if-no-files-found: error
+          retention-days: 14
