@@ -64,6 +64,8 @@ checks = {
     "AppImage launcher calls renamed binary": 'exec "$appdir/usr/bin/goreecloud_rich_text_editor" "$@"' in read("packaging/linux/AppRun"),
     "AppImage launcher is smoke-tested": "AppImage launcher smoke test passed" in read("scripts/package-appimage.sh"),
     "Linux GUI smoke validates Markdown persistence": "--markdown" in read("scripts/smoke-linux-editor.py") and "LINUX_GUI_MARKDOWN_EDIT_SAVE_REOPEN_PASS" in read("scripts/smoke-linux-editor.py") and "index.json" in read("scripts/smoke-linux-editor.py"),
+    "real Linux tarball executable smoke in CI": "scripts/smoke-linux-tarball.sh dist/linux/" in read(".github/workflows/ci.yml") and "scripts/smoke-linux-appimage.sh" in read("scripts/smoke-linux-tarball.sh"),
+    "Linux tarball smoke streams only application member": 'tar -xOzf "$archive"' in read("scripts/smoke-linux-tarball.sh"),
     "Linux-first CI candidate gate": "scripts/test_linux_release.py" in read(".github/workflows/ci.yml") and "scripts/check-linux-release.py dist/linux" in read(".github/workflows/ci.yml"),
     "Linux AppImage downloader disables curlrc": "curl -q --fail --location" in read("scripts/package-appimage.sh"),
     "Linux candidate gate caps GLIBC": "highest[:2] > (2, 35)" in read("scripts/check-linux-release.py"),

@@ -48,6 +48,7 @@ scripts/check.sh
 ## Tasks before distributing the initial Linux release
 
 - [ ] Run `python3 -B scripts/check-linux-release.py dist/linux` on the paired Linux candidates; check both package checksums, GLIBC compatibility and dependency reports.
+- [ ] Run `scripts/smoke-linux-tarball.sh dist/linux/goreecloud-rich-text-editor-*-linux-x86_64.tar.gz` and the AppImage smoke on candidate packages; these use disposable X11 libraries and do not replace physical-desktop QA.
 - [ ] Verify final AppImage/tarball behavior on a physical Linux desktop: Markdown import/edit, native rich text, Unicode paths, printing/export, fonts, persistence, and interrupted-write recovery. Windows/macOS GUI acceptance is deferred.
 - [ ] Run `scripts/check.sh` and verify the current GitHub Actions CI jobs are green on the release commit.
 - [ ] Create an independent GoreeCloud minisign key and verify detached signatures on Linux packages. Windows Authenticode and Apple notarization are not Linux release gates.

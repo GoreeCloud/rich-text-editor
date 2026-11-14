@@ -15,7 +15,8 @@ unconfigured. Automatic updates remain disabled.
 **Automated gate:** Build on Ubuntu 22.04 x86_64 (glibc 2.35 baseline).
 Run Rust tests and Clippy; package both the AppImage and portable tarball;
 verify SHA-256 sidecars, license notices, runtime dependency reports, and
-AppImage launcher. Continue isolated real-GUI creation, editing, and
+real GUI startup of **both** the AppImage and the packaged tarball binary
+under an isolated Linux X11 session. Continue isolated real-GUI creation, editing, and
 save/reopen tests for rich-text notes and native Markdown, including Unicode.
 Run `python3 -B scripts/test_linux_release.py` and
 `python3 -B scripts/check-linux-release.py dist/linux` to validate the
