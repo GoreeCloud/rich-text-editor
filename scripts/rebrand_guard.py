@@ -90,6 +90,7 @@ checks = {
         "services/stats/migrations/0001_metrics.sql",
     ]),
     "contributor generator uses GoreeCloud repository": "'GoreeCloud/rich-text-editor'" in read("scripts/update-contributors.py"),
+    "unreferenced upstream promotional art not bundled": not any((ROOT / "site/public" / name).exists() for name in ["home.jpg", "home-2000.webp", "home-1400.webp", "bg.png"]),
     "historical upstream release notes labeled": "not GoreeCloud Rich Text Editor releases" in read("docs/releases/README.md"),
     "placeholder site redirects to independent repository": 'const TARGET = "https://github.com/GoreeCloud/rich-text-editor"' in read("site/index.js"),
     "macOS preview app identifier": "com.goreecloud.richtexteditor.preview" in read("scripts/preview.sh"),

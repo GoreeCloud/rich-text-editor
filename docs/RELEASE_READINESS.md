@@ -137,3 +137,8 @@ no role in the local-first application. The `services/stats` directory retains
 only a retirement explanation and link to the historical upstream source.
 The optional contributor-avatar generator defaults to the independent
 GoreeCloud GitHub repository.
+
+Unreferenced promotional screenshots and background images imported from the
+upstream static site were removed as well. The independent GoreeCloud logo,
+icon, and active source-preview HTML were retained; runtime app resources
+and historical release notes remain unchanged.
