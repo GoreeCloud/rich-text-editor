@@ -10,22 +10,28 @@
 #     --apple-id <你的 Apple ID> --team-id <Team ID> --password <App 专用密码>
 #
 # Environment:
-#   CODESIGN_ID    证书名，默认自动取钥匙串里的第一个 "Developer ID Application"
-#   NOTARY_PROFILE notarytool 的 profile 名，默认 goreecloud-rich-text-editor
-#   BUNDLE_ID      bundle identifier，默认 com.goreecloud.richtexteditor（发布前改成你自己的反向域名）
+#   CODESIGN_ID          Explicit Developer ID Application identity (required)
+#   NOTARY_PROFILE       Existing notarytool keychain profile (required)
+#   GOREECLOUD_APPLE_TEAM_ID  Expected 10-character Apple Developer team ID
+#   GOREECLOUD_RELEASE_ENABLED=yes  Explicit production release gate
+# App bundle identifier is fixed: com.goreecloud.richtexteditor
 set -e
 cd "$(dirname "$0")/.."
 version=${1:-$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)}
-bundle_id=${BUNDLE_ID:-com.goreecloud.richtexteditor}
-profile=${NOTARY_PROFILE:-goreecloud-rich-text-editor}
-sign_id=${CODESIGN_ID:-$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application:.*\)"/\1/p' | head -1)}
-[ -n "$sign_id" ] || {
-  echo "package.sh: 钥匙串里没有 Developer ID Application 证书。" >&2
-  echo "  Apple Developer Program 会员可以在 developer.apple.com 申请，导入后用 security find-identity 确认。" >&2
-  exit 1
-}
+# This alternate DMG flow is production-only and must never auto-select
+# a different team's signing certificate from the keychain.
+[ "${GOREECLOUD_RELEASE_ENABLED:-}" = yes ] || { echo "Set GOREECLOUD_RELEASE_ENABLED=yes for signed releases" >&2; exit 2; }
+: "${CODESIGN_ID:?Set CODESIGN_ID explicitly to your Developer ID signing identity}"
+: "${NOTARY_PROFILE:?Set NOTARY_PROFILE to the notarytool keychain profile}"
+: "${GOREECLOUD_APPLE_TEAM_ID:?Set GOREECLOUD_APPLE_TEAM_ID to the expected Apple team ID}"
+[[ "$GOREECLOUD_APPLE_TEAM_ID" =~ ^[A-Z0-9]{10}$ ]] || { echo "Invalid GOREECLOUD_APPLE_TEAM_ID" >&2; exit 2; }
+expected=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+[ "$version" = "$expected" ] || { echo "Requested version differs from Cargo.toml" >&2; exit 2; }
+bundle_id=com.goreecloud.richtexteditor
+profile=$NOTARY_PROFILE
+sign_id=$CODESIGN_ID
 
-out=dist
+out=$(mktemp -d "$PWD/dist-dmg.XXXXXX")
 app="$out/GoreeCloud Rich Text Editor.app"
 dmg="$out/goreecloud-rich-text-editor-$version.dmg"
 
@@ -33,7 +39,6 @@ echo "== 编译 $version"
 cargo build --release --locked
 
 echo "== 组装 $app"
-rm -rf "$out"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp LICENSE THIRD_PARTY.md "$app/Contents/Resources/"
 cp target/release/goreecloud_rich_text_editor "$app/Contents/MacOS/goreecloud_rich_text_editor"
@@ -72,7 +77,11 @@ PLIST
 
 echo "== 签名（hardened runtime + 时间戳）"
 codesign --force --options runtime --timestamp --sign "$sign_id" "$app"
-codesign --verify --strict --verbose=2 "$app"
+codesign --verify --deep --strict --verbose=2 "$app"
+codesign -dv --verbose=4 "$app" 2>&1 | grep -Fx "TeamIdentifier=$GOREECLOUD_APPLE_TEAM_ID" >/dev/null || {
+  echo "Wrong Apple Developer ID team for this signed application" >&2
+  exit 1
+}
 
 echo "== 打包 $dmg"
 rm -rf "$out/dmg-root"
@@ -84,12 +93,20 @@ rm -rf "$out/dmg-root"
 codesign --force --timestamp --sign "$sign_id" "$dmg"
 
 echo "== 公证（需要网络，通常几分钟）"
-xcrun notarytool submit "$dmg" --keychain-profile "$profile" --wait
+xcrun notarytool submit "$dmg" --keychain-profile "$profile" --wait --output-format json > "$out/notarization.json"
+python3 - "$out/notarization.json" <<'PYTHON'
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as f:
+    result = json.load(f)
+if result.get("status") != "Accepted":
+    raise SystemExit("DMG notarization was not accepted; see " + sys.argv[1])
+print("DMG notarized:", result.get("id", "(submission ID not returned)"))
+PYTHON
 xcrun stapler staple "$dmg"
 xcrun stapler validate "$dmg"
 
 echo "== 验收"
-spctl -a -vvv -t install "$dmg" || true
+spctl -a -vvv -t install "$dmg"
 codesign -dv --verbose=4 "$app" 2>&1 | grep -E "Identifier|Authority|TeamIdentifier|flags"
 echo
 echo "好了：$dmg（$(du -h "$dmg" | cut -f1)）"

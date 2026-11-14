@@ -18,6 +18,9 @@ try {
         throw "Invalid signature or unexpected publisher: $FilePath"
     }
     if (!$signature.TimeStamperCertificate) { throw "Missing trusted timestamp: $FilePath" }
+    if (!$env:GOREECLOUD_WINDOWS_CERT_SUBJECT -or $signature.SignerCertificate.Subject -cne $env:GOREECLOUD_WINDOWS_CERT_SUBJECT) {
+        throw "Unexpected signer subject or GOREECLOUD_WINDOWS_CERT_SUBJECT not configured: $FilePath"
+    }
 } catch {
     Write-Error $_ -ErrorAction Continue
     exit 1

@@ -1,16 +1,23 @@
 param(
     [string]$Iscc = 'ISCC.exe',
     [string]$CertificateThumbprint,
-    [string]$TimestampUrl = 'http://time.certum.pl',
+    [string]$TimestampUrl,
     [string]$SignTool = 'signtool.exe'
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $signed = $PSBoundParameters.ContainsKey('CertificateThumbprint')
 if ($signed) {
+    if ($env:GOREECLOUD_RELEASE_ENABLED -cne 'yes') { throw 'Signed Windows releases require GOREECLOUD_RELEASE_ENABLED=yes' }
+    if ([string]::IsNullOrWhiteSpace($env:GOREECLOUD_WINDOWS_CERT_SUBJECT)) {
+        throw 'Set GOREECLOUD_WINDOWS_CERT_SUBJECT to the exact subject of your code-signing certificate'
+    }
     if ($CertificateThumbprint -notmatch '^[0-9a-fA-F]{40}$') { throw 'Provide the 40-character signing certificate thumbprint' }
     if (!(Test-Path "Cert:\CurrentUser\My\$CertificateThumbprint")) { throw 'Signing certificate not found in CurrentUser\My; connect your token or cloud signing client first' }
     $certificate = Get-Item "Cert:\CurrentUser\My\$CertificateThumbprint"
+    if ($certificate.Subject -cne $env:GOREECLOUD_WINDOWS_CERT_SUBJECT) {
+        throw 'Certificate subject differs from GOREECLOUD_WINDOWS_CERT_SUBJECT; refusing to sign with the wrong publisher'
+    }
     $now = Get-Date
     if (!$certificate.HasPrivateKey -or $certificate.NotBefore -gt $now -or $certificate.NotAfter -le $now -or
         '1.3.6.1.5.5.7.3.3' -notin $certificate.EnhancedKeyUsageList.ObjectId.Value) {

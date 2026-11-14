@@ -6,7 +6,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 : "${SIGNING_IDENTITY:?Set SIGNING_IDENTITY to your Developer ID Application identity}"
 if [ "$SIGNING_IDENTITY" != - ]; then
+  [ "${GOREECLOUD_RELEASE_ENABLED:-}" = yes ] || { echo "Developer ID signing requires GOREECLOUD_RELEASE_ENABLED=yes" >&2; exit 2; }
   : "${NOTARY_PROFILE:?Set NOTARY_PROFILE to a notarytool keychain profile}"
+  : "${GOREECLOUD_APPLE_TEAM_ID:?Set GOREECLOUD_APPLE_TEAM_ID to the expected Apple Developer team}"
+  [[ "$GOREECLOUD_APPLE_TEAM_ID" =~ ^[A-Z0-9]{10}$ ]] || { echo "Invalid GOREECLOUD_APPLE_TEAM_ID" >&2; exit 2; }
 fi
 export MACOSX_DEPLOYMENT_TARGET=13.0
 target=${MACOS_TARGET:-$(rustc -vV | sed -n 's/^host: //p')}
@@ -68,6 +71,12 @@ else
   codesign --force --options runtime --timestamp --sign "$SIGNING_IDENTITY" "$app"
 fi
 codesign --verify --deep --strict --verbose=2 "$app"
+if [ "$SIGNING_IDENTITY" != - ]; then
+  codesign -dv --verbose=4 "$app" 2>&1 | grep -Fx "TeamIdentifier=$GOREECLOUD_APPLE_TEAM_ID" >/dev/null || {
+    echo "Signed app TeamIdentifier does not match GOREECLOUD_APPLE_TEAM_ID" >&2
+    exit 1
+  }
+fi
 suffix=
 if [ "$SIGNING_IDENTITY" = - ]; then
   suffix=-unsigned
