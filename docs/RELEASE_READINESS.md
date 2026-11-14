@@ -109,3 +109,10 @@ Optional remote-image fetching also uses `curl -q` as its first argument so exis
 Windows remote-image fetching streams through a Rust-opened local file rather than passing the cache path as a curl.exe output argument; this protects Unicode user-folder paths and suppresses curl console flashes. The Rust integration test fetches an original PNG from an in-process 127.0.0.1 server into a Unicode file, with no outside network access.
 
 Windows Unicode-path remote image downloads explicitly request curl binary stdout (`--output -`) and let Rust write the decoded cache path natively. This avoids code-page corruption in file arguments and the binary-output fallback on Windows.
+
+The isolated Linux X11 acceptance suite now exercises both the app's normal
+rich-text document format and a second disposable library configured for
+Markdown. It opens the actual GUI, creates a note via Ctrl+N, types the title
+and body (including Unicode for Markdown), closes and reopens the process,
+and checks persisted bytes and the Markdown title index. This does not
+establish Windows/macOS GUI round-trip or accessibility acceptance.

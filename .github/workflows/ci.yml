@@ -250,6 +250,7 @@ jobs:
         run: |
           cargo build --release --locked --features devtools --bin goreecloud_rich_text_editor
           python3 -B scripts/smoke-linux-editor.py target/release/goreecloud_rich_text_editor
+          python3 -B scripts/smoke-linux-editor.py target/release/goreecloud_rich_text_editor --markdown
 
       - name: Verify Linux package
         if: steps.filter.outputs.skip != 'true'

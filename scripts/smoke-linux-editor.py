@@ -19,16 +19,23 @@ import uuid
 def main() -> int:
     if sys.platform != "linux":
         raise SystemExit("Linux only")
-    if len(sys.argv) != 2 or not Path(sys.argv[1]).is_file():
-        raise SystemExit("Usage: smoke-linux-editor.py <devtools-enabled-binary>")
+    if (len(sys.argv) not in (2, 3) or not Path(sys.argv[1]).is_file()
+            or (len(sys.argv) == 3 and sys.argv[2] != "--markdown")):
+        raise SystemExit("Usage: smoke-linux-editor.py <devtools-enabled-binary> [--markdown]")
+    markdown = len(sys.argv) == 3
     app = Path(sys.argv[1]).resolve()
     token = uuid.uuid4().hex[:12]
     title = "GoreeCloudSavedTitle_" + token
-    body = "GoreeCloudSavedBody_" + token
+    body = "GoreeCloudSavedBody_" + token + (" 中文" if markdown else "")
     work = Path(tempfile.mkdtemp(prefix="goreecloud-editor-interaction-"))
     for name in ("home", "config", "cache", "data", "runtime", "library", "logs"):
         (work / name).mkdir()
     (work / "runtime").chmod(0o700)
+    # Force Markdown only inside this newly created disposable library.
+    # Never change the production app's defaults or an existing user preference.
+    if markdown:
+        (work / "library" / "preferences.json").write_text(
+            '{"new_default":"markdown","language":"en"}', encoding="utf-8")
     env = dict(os.environ, HOME=str(work / "home"),
                XDG_CONFIG_HOME=str(work / "config"),
                XDG_CACHE_HOME=str(work / "cache"),
@@ -93,16 +100,28 @@ def main() -> int:
         )))
         notes = [p for p in (work / "library").rglob("*")
                  if p.is_file() and p.suffix.lower() in (".xml", ".md")]
-        matches = [p for p in notes if title in p.read_text(errors="replace")
-                   and body in p.read_text(errors="replace")]
+        if markdown:
+            # Markdown serializes the body into the .md file. The note title
+            # lives in index.json, and underscores are escaped by the writer.
+            matches = [p for p in notes if p.suffix.lower() == ".md"
+                       and body.replace("_", r"\_") in p.read_text(errors="replace")]
+            index = work / "library" / "index.json"
+            if not index.is_file() or title not in index.read_text(errors="replace"):
+                raise AssertionError("Markdown note title missing from library index")
+        else:
+            matches = [p for p in notes if title in p.read_text(errors="replace")
+                       and body in p.read_text(errors="replace")]
         if len(matches) != 1:
-            raise AssertionError(f"Expected one persisted title+body note; found {len(matches)}")
+            raise AssertionError(f"Expected one persisted {'Markdown' if markdown else 'rich-text'} note; found {len(matches)}")
         doc = matches[0]
         digest = hashlib.sha256(doc.read_bytes()).hexdigest()
         session("reopen", "wait 1100\nquit\n")
         if not doc.is_file() or hashlib.sha256(doc.read_bytes()).hexdigest() != digest:
-            raise AssertionError("Saved rich-text note changed or disappeared after reopening")
-        print("LINUX_GUI_EDIT_SAVE_REOPEN_PASS", flush=True)
+            raise AssertionError("Saved note changed or disappeared after reopening")
+        if markdown and title not in index.read_text(errors="replace"):
+            raise AssertionError("Markdown note title disappeared after reopening")
+        print("LINUX_GUI_MARKDOWN_EDIT_SAVE_REOPEN_PASS" if markdown else
+              "LINUX_GUI_EDIT_SAVE_REOPEN_PASS", flush=True)
         passed = True
         return 0
     finally:
