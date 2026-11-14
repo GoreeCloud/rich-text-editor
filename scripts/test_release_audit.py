@@ -135,6 +135,27 @@ class ReleaseAuditTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "HTTPS origin"):
                     audit.audit(path, True)
 
+    def test_linux_distribution_uses_the_staged_signature(self):
+        # A mocked invocation verifies *which* verifier and key are called;
+        # real cryptographic signing is gated on the owner's private key.
+        path = self.appimage()
+        pub = self.root / "packaging/update-key.pub"
+        pub.parent.mkdir(parents=True)
+        pub.write_text("untrusted comment: synthetic fixture only\n")
+        staged = self.root / "signed-in-private-staging.minisig"
+        staged.write_text("synthetic test signature")
+        with patch.object(audit, "ROOT", self.root), patch.dict(os.environ, {
+            "GOREECLOUD_RELEASE_ENABLED": "yes",
+            "GOREECLOUD_DOWNLOAD_HOST": "https://release.example.com",
+            "GOREECLOUD_DOWNLOAD_BUCKET": "test-release-bucket",
+        }), patch.object(audit.subprocess, "run") as call:
+            audit.verify_distribution(path, "linux-x86_64", staged)
+            call.assert_called_once_with(
+                ["minisign", "-Vm", str(path), "-x", str(staged), "-p", str(pub)], check=True)
+            with self.assertRaisesRegex(ValueError, "no detached minisign signature"):
+                audit.verify_distribution(path, "linux-x86_64")
+        print("Staged Linux signature verifier checked; actual cryptographic signing requires owner key.")
+
     def test_distribution_rejects_placeholder_hosts(self):
         path=self.appimage()
         with patch.dict(os.environ,{"GOREECLOUD_RELEASE_ENABLED":"yes",

@@ -90,6 +90,19 @@ transfer to the validated manifest size. A detached minisign signature and
 matching trusted comment remain mandatory for the actual payload.
 These limits are exercised in Rust tests without contacting a network.
 
+## Distribution upload preflight
+
+Before any real release upload, the publisher now checks every input, refuses
+duplicate platforms or mixed native signing families, and stages copies into a
+private directory (preventing checksum/signature race conditions). It verifies
+the **native signed Windows installer and notarized macOS bundle** (on their
+respective OS), or the staged Linux minisign signature, before uploading any
+package. Update-feed manifests are published only after every supplied package
+has uploaded and is reachable. This still does not make independent multi-OS
+rollouts atomic. Offline dry-run tests exercise positive and adversarial
+publishing scenarios on both macOS and Linux CI runners. No release signing
+keys or host have been configured.
+
 Optional remote-image fetching also uses `curl -q` as its first argument so existing user `.curlrc` settings cannot silently override TLS verification, network protocols, or transfer limits. This is checked by the web-image Rust test and rebrand guard.
 
 Windows remote-image fetching streams through a Rust-opened local file rather than passing the cache path as a curl.exe output argument; this protects Unicode user-folder paths and suppresses curl console flashes. The Rust integration test fetches an original PNG from an in-process 127.0.0.1 server into a Unicode file, with no outside network access.
