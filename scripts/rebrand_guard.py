@@ -29,6 +29,7 @@ checks = {
     "private new-library web image default": "remote_images: false" in production_rust("src/settings.rs"),
     "private new-library updater default": "auto_update: false" in production_rust("src/settings.rs"),
     "web image redirects protocol restricted": '"--proto-redir", "=http,https"' in production_rust("src/editor/image.rs"),
+    "web image stdout output binary": '"--output", "-", "--"' in production_rust("src/editor/image.rs"),
     "web image cache path native Unicode": 'image_download_command(url)' in production_rust("src/editor/image.rs") and 'Stdio::from(out)' in production_rust("src/editor/image.rs"),
     "Windows image downloads hide console": 'cmd.creation_flags(0x0800_0000)' in production_rust("src/editor/image.rs"),
     "web image curlrc disabled": 'cmd.args(["-q", "--fail"' in production_rust("src/editor/image.rs"),

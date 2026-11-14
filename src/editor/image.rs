@@ -2072,7 +2072,10 @@ fn image_download_command(url: &str) -> std::process::Command {
     cmd.args(["-q", "--fail", "--silent", "--show-error", "--location",
         "--max-time", "60", "--connect-timeout", "10", "--max-redirs", "5",
         "--proto", "=http,https", "--proto-redir", "=http,https",
-        "--max-filesize", "20971520", "--noproxy", "localhost,127.0.0.1", "--"]).arg(url);
+        // Explicit stdout output mode keeps binary images intact on Windows
+        // and still avoids passing a Unicode file path through curl.exe.
+        "--max-filesize", "20971520", "--noproxy", "localhost,127.0.0.1",
+        "--output", "-", "--"]).arg(url);
     cmd.stdin(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
     cmd
@@ -2284,7 +2287,8 @@ mod tests {
             assert!(args.windows(2).any(|pair| pair[0] == key && pair[1] == value), "{key}: {args:?}");
         }
         assert_eq!(&args[args.len()-2..], &["--", "https://example.com/image.png"]);
-        assert!(!args.iter().any(|arg| arg == "--output"), "curl must not receive Unicode cache paths");
+        assert!(args.windows(2).any(|pair| pair[0] == "--output" && pair[1] == "-"), "curl must explicitly use binary stdout");
+        assert!(!args.iter().any(|arg| arg == "test.png.part" || arg == "photo 中文 with spaces.png"), "curl must not receive Unicode cache paths");
     }
 
     #[test]
