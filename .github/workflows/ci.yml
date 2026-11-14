@@ -230,7 +230,7 @@ jobs:
         if: steps.filter.outputs.skip != 'true'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev libfreetype6-dev libwayland-dev libx11-xcb-dev libvulkan-dev libssl-dev python3 imagemagick fonts-noto-core fonts-noto-cjk xvfb xauth x11-utils mesa-vulkan-drivers
+          sudo apt-get install -y libxkbcommon-dev libxkbcommon-x11-dev libfontconfig1-dev libfreetype6-dev libwayland-dev libx11-xcb-dev libvulkan-dev libssl-dev python3 imagemagick fonts-noto-core fonts-noto-cjk xvfb xauth x11-utils mesa-vulkan-drivers desktop-file-utils
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         if: steps.filter.outputs.skip != 'true'
@@ -272,6 +272,13 @@ jobs:
       - name: Smoke-test actual Linux tarball executable in isolated X11
         if: steps.filter.outputs.skip != 'true'
         run: scripts/smoke-linux-tarball.sh dist/linux/goreecloud-rich-text-editor-*-linux-x86_64.tar.gz
+
+      - name: Verify desktop metadata and packaged external Markdown opening
+        if: steps.filter.outputs.skip != 'true'
+        run: |
+          desktop-file-validate packaging/linux/com.goreecloud.richtexteditor.desktop
+          python3 -B scripts/smoke-linux-packaged-open.py dist/linux/goreecloud-rich-text-editor-*-x86_64.AppImage
+          python3 -B scripts/smoke-linux-packaged-open.py dist/linux/goreecloud-rich-text-editor-*-linux-x86_64.tar.gz
 
       - name: Audit Linux package checksums and contents
         if: steps.filter.outputs.skip != 'true'

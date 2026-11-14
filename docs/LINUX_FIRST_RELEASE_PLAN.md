@@ -16,7 +16,14 @@ unconfigured. Automatic updates remain disabled.
 Run Rust tests and Clippy; package both the AppImage and portable tarball;
 verify SHA-256 sidecars, license notices, runtime dependency reports, and
 real GUI startup of **both** the AppImage and the packaged tarball binary
-under an isolated Linux X11 session. Continue isolated real-GUI creation, editing, and
+under an isolated Linux X11 session.
+The Linux package smoke also opens an **external Unicode/space-containing
+Markdown filename directly through each shipped executable**, verifies an
+in-place library index association, leaves its bytes/mtime intact, and
+rejects unrelated text-file arguments. The Linux desktop entry is validated
+with `desktop-file-validate` and includes the `%F` file
+argument. Tests use disposable XDG/notes directories, not the user's
+regular library. Continue isolated real-GUI creation, editing, and
 save/reopen tests for rich-text notes and native Markdown, including Unicode.
 Run `python3 -B scripts/test_linux_release.py` and
 `python3 -B scripts/check-linux-release.py dist/linux` to validate the
