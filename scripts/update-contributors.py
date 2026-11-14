@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def main():
-    repository = os.environ.get('GITHUB_REPOSITORY', 's1dashu/goreecloud-rich-text-editor')
+    repository = os.environ.get('GITHUB_REPOSITORY', 'GoreeCloud/rich-text-editor')
     pages = json.loads(subprocess.check_output([
         'gh', 'api', '--paginate', '--slurp',
         f'repos/{repository}/contributors?per_page=100',
