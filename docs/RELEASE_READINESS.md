@@ -75,3 +75,17 @@ independent Unicode/space-containing Markdown notes remain unchanged. A
 this script requires an explicit GOREECLOUD_WINDOWS_SMOKE_TEST=yes opt-in on a
 throwaway Windows account. It **does not** substitute for interactive GUI QA
 or test signed production installer trust dialogs on an end-user machine.
+
+## Pre-activation updater protocol hardening
+
+Automatic updates are still disabled. When the channel is eventually enabled,
+release builds ignore the development-only GOREECLOUD_RTE_UPDATE_URL environment
+override. Local development/test builds may point only at HTTP loopback ports;
+arbitrary hosts, files and remote HTTP overrides are not valid. The manifest
+must refer to the **exact** versioned GoreeCloud package URL, including the
+three-part numeric version and correct platform. The curl client disables
+user ~/.curlrc, allows only HTTPS in production (including redirects), limits
+redirect count, restricts feed manifests to 64 KiB, and caps package download
+transfer to the validated manifest size. A detached minisign signature and
+matching trusted comment remain mandatory for the actual payload.
+These limits are exercised in Rust tests without contacting a network.
