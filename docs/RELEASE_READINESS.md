@@ -64,8 +64,10 @@ application command line using a filename with **Unicode and spaces**. It
 verifies that the external source bytes and modification timestamp are
 unchanged, the file is linked in the library rather than copied, unrelated
 non-Markdown command-line files are ignored, and the same local-file record
-survives closing/reopening the app. Editing an existing external file and
-printing/export still require separate native acceptance.
+survives closing/reopening the app. It then edits the original file through
+the GUI, verifies Unicode text was saved at that **same external path**,
+and checks its bytes survive another full restart. Printing/export and
+additional real desktop environments still require separate acceptance.
 
 ## Import hardening checks
 

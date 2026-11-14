@@ -15,6 +15,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import uuid
 import threading
 import time
 
@@ -48,9 +49,9 @@ def main() -> int:
     if icds:
         env["VK_ICD_FILENAMES"] = str(icds[0])
 
-    def session(name: str, argv: list[str]) -> None:
+    def session(name: str, argv: list[str], script: str | None = None) -> None:
         steps = root / (name + ".steps")
-        steps.write_text("wait 2100\nclick 650 330\nwait 200\nquit\n", encoding="utf-8")
+        steps.write_text(script or "wait 2100\nclick 650 330\nwait 200\nquit\n", encoding="utf-8")
         log = root / "logs" / (name + ".log")
         appenv = dict(env, FDL_SCRIPT=str(steps))
         with log.open("wb") as capture:
@@ -136,6 +137,35 @@ def main() -> int:
         if len(after) != len(before):
             raise AssertionError("Reopening created a duplicate local-file record")
         print("LINUX_GUI_EXTERNAL_MARKDOWN_UNICODE_IN_PLACE_REOPEN_PASS", flush=True)
+
+        # The actual GUI must save edits back to the *external* Markdown file.
+        # Only an isolated source fixture is modified; the user's real files
+        # are never opened. Unicode and spaces remain in the original path.
+        edit_marker = "GoreeCloudExternalEdited" + uuid.uuid4().hex[:10] + "中文"
+        session("edit-original-external-markdown", [str(external)],
+                "wait 1700\nclick 675 520\nwait 250\nkey ctrl-end\n"
+                "type " + edit_marker + "\nwait 2500\nquit\n")
+        edited = external.read_bytes()
+        if edit_marker.encode("utf-8") not in edited:
+            raise AssertionError("The GUI edit was not saved to the original Markdown path")
+        if edited == source:
+            raise AssertionError("The external Markdown edit did not change the source")
+        after_edit = entries()
+        linked_after_edit = [key for key, value in after_edit.items()
+                             if isinstance(value, dict) and value.get("path") == str(external)]
+        if linked_after_edit != [id_before] or len(after_edit) != len(before):
+            raise AssertionError("Editing in place duplicated or replaced the indexed local record")
+        if (root / "library" / "docs").exists() and any((root / "library" / "docs").iterdir()):
+            raise AssertionError("External file edit unexpectedly copied the source into library docs")
+
+        session("reopen-edited-external-markdown", [])
+        if external.read_bytes() != edited:
+            raise AssertionError("Reopening changed saved external Markdown contents")
+        if edit_marker.encode("utf-8") not in external.read_bytes():
+            raise AssertionError("External edit did not persist across application restart")
+        if ignored.read_text(encoding="utf-8") != "Do not open this plain-text fixture.\n":
+            raise AssertionError("The unrelated non-Markdown source was modified")
+        print("LINUX_GUI_EXTERNAL_MARKDOWN_EDIT_SAVE_REOPEN_PASS", flush=True)
         passed = True
         return 0
     finally:
