@@ -268,11 +268,17 @@ jobs:
         if: steps.filter.outputs.skip != 'true'
         run: scripts/smoke-linux-appimage.sh dist/linux/goreecloud-rich-text-editor-*-x86_64.AppImage
 
+      - name: Smoke-test actual Linux tarball executable in isolated X11
+        if: steps.filter.outputs.skip != 'true'
+        run: scripts/smoke-linux-tarball.sh dist/linux/goreecloud-rich-text-editor-*-linux-x86_64.tar.gz
+
       - name: Audit Linux package checksums and contents
         if: steps.filter.outputs.skip != 'true'
         run: |
           python3 -B scripts/test_release_audit.py
+          python3 -B scripts/test_linux_release.py
           python3 -B scripts/audit-release-artifacts.py dist/linux/goreecloud-rich-text-editor-*-linux-x86_64.tar.gz dist/linux/goreecloud-rich-text-editor-*-x86_64.AppImage
+          python3 -B scripts/check-linux-release.py dist/linux
 
       - name: Exercise release publisher dry-run safety
         if: steps.filter.outputs.skip != 'true'

@@ -1,6 +1,6 @@
 # GoreeCloud Rich Text Editor — release operations
 
-**Status: source beta, not approved for public distribution.** The unsigned macOS, Windows and Linux CI artifacts are validation packages only. Automated updates are intentionally disabled. This runbook cannot substitute for signing credentials, a verified GoreeCloud-owned domain, notarization, or installing the apps on the target operating systems.
+**Status: source beta, not approved for public distribution.** The **first release target is Linux x64** (AppImage and tarball). Windows remains CI-tested, with public distribution deferred until native GUI acceptance. macOS is deferred. Windows and Apple credentials are not prerequisites for Linux. Unsigned CI packages are validation artifacts; updates remain disabled. See the [Linux-first plan](LINUX_FIRST_RELEASE_PLAN.md).
 
 ## 1. Gate and artifact validation
 
@@ -17,7 +17,14 @@ The audit checks a package's version, filename, SHA-256 sidecar and platform-spe
 
 The proposed download bucket and hostname must be configured by the owner as `GOREECLOUD_DOWNLOAD_BUCKET` and `GOREECLOUD_DOWNLOAD_HOST`. The host must be an HTTPS origin owned by GoreeCloud, not Quiet.md's endpoint, `updates.invalid`, a localhost address, or any other unowned placeholder. Passing the hostname format check **does not prove DNS ownership**.
 
-## 2. macOS: Developer ID signing and notarization
+## 2. macOS (deferred): Developer ID signing and notarization
+
+**Do not treat this section as part of the initial Linux release
+checklist.** Apple hardware, Developer ID enrollment and notarization are
+not on the initial release roadmap. Keep macOS CI validation for feedback,
+but do not publish or label unsigned macOS artifacts as trusted installers.
+The following instructions are retained solely for an eventual decision to
+support independently signed and notarized macOS distribution.
 
 Requires a Mac with Xcode command-line tools, an Apple Developer Program team, a **Developer ID Application** signing certificate accessible in that Mac's keychain, and a stored `notarytool` authentication profile. Have your Apple team administrator provision these; do not commit the private key or password. Apple requires the hardened runtime, an appropriate Developer ID signature and a secure timestamp to notarize outside-the-App-Store apps.
 
@@ -83,19 +90,19 @@ The publisher `scripts/publish-downloads.sh` is gated on `GOREECLOUD_RELEASE_ENA
 
 `src/update.rs` deliberately retains `UPDATES_CONFIGURED = false` and the non-resolving `updates.invalid` host. **Do not change these** until the new public key is committed, signed packages are live at the GoreeCloud-owned host, and update/rollback/failed-network tests pass on disposable installations. Running the publisher by itself does not enable automatic updates.
 
-## 5. Human acceptance checklist
+## 5. Human acceptance checklist — Linux first
 
-Each actual OS build must be installed from its final distributed artifact, not merely compiled. Record the platform/OS version, installer checksum, application version, observed result and repro steps for each check:
+Exercise both final Linux packages on a clean physical Linux desktop, not only in CI. Record the OS version, checksum, app version and observed result. Windows/macOS acceptance is deferred and does not block Linux:
 
-- [ ] macOS arm64 and x86_64: app opens without Gatekeeper warnings; signing team and notarization ticket verify; .md files open in place and can save
-- [ ] Windows x64: publisher certificate and trusted timestamp verify; install, update, file association and uninstall preserve the notes library
+- [ ] Deferred only — macOS arm64 and x86_64: no public macOS release without a valid developer team, notarization, trusted final artifact, and separate device-level acceptance
+- [ ] Deferred — Windows x64: complete native GUI validation and trusted publisher verification when Windows distribution is planned
 - [ ] Linux x64: tarball and AppImage start on a physical display; icons, font rendering, image scaling and keyboard/mouse interactions work
-- [ ] All platforms: create a Markdown note, type Unicode, close/reopen, confirm disk persistence and Markdown round-trip
-- [ ] All platforms: create a rich-text note, insert an image/table, save, restart and inspect recovery after a simulated interrupted write
-- [ ] All platforms: import an external Markdown file with spaces in its path, edit and save it, confirm the original is not unexpectedly overwritten before Save
-- [ ] All platforms: defaults have no external web-image fetches or automatic update requests; individual opt-in respects HTTP(S)-only redirects and limits
-- [ ] All platforms: print/export with expected formatting and file permissions; check accessibility, high DPI and dark theme
-- [ ] All platforms: update with the **GoreeCloud-signed** release, reject a tampered artifact, gracefully recover from interrupted download and preserve existing notes
+- [ ] Linux x64: create a Markdown note, type Unicode, close/reopen, confirm disk persistence and Markdown round-trip
+- [ ] Linux x64: create a rich-text note, insert an image/table, save, restart and inspect recovery after a simulated interrupted write
+- [ ] Linux x64: import an external Markdown file with spaces in its path, edit and save it, confirm the original is not unexpectedly overwritten before Save
+- [ ] Linux x64: defaults have no external web-image fetches or automatic update requests; individual opt-in respects HTTP(S)-only redirects and limits
+- [ ] Linux x64: print/export with expected formatting and file permissions; check accessibility, high DPI and dark theme
+- [ ] Linux x64: update with the **GoreeCloud-signed** release, reject a tampered artifact, gracefully recover from interrupted download and preserve existing notes
 - [ ] Verify fresh-machine install from the public HTTPS host, compare checksum, confirm no upstream brand/assets or unlicensed works remain
 
 ### Validated so far (2026-11-13)

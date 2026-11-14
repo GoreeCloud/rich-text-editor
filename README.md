@@ -2,9 +2,11 @@
 
 **A local-first desktop notes app, Markdown editor, Markdown viewer, and rich-text text editor.**
 
-GoreeCloud Rich Text Editor is a rebranded import of the open-source [Quiet.md](https://github.com/s1dashu/quiet-md) project, built with Rust and GPUI. It is intended for macOS and Windows, with experimental Linux support.
+GoreeCloud Rich Text Editor is a rebranded import of the open-source [Quiet.md](https://github.com/s1dashu/quiet-md) project, built with Rust and GPUI. **Linux x64 is the first release target.** Windows x64 remains CI-tested, with public distribution deferred until native GUI acceptance is possible. macOS remains a validation-only target for now. Windows or Apple hardware/signing credentials do not block Linux.
 
 > **Status: source import / beta.** This repository does not yet publish GoreeCloud installers or automatic updates. Do not use the upstream Quiet.md release packages as GoreeCloud builds.
+
+**Release order:** Linux AppImage/tarball, native Linux GUI acceptance and signed Linux packages first. Windows CI maintenance second; public Windows and macOS releases deferred. See the [Linux-first release plan](docs/LINUX_FIRST_RELEASE_PLAN.md).
 
 ## Features
 

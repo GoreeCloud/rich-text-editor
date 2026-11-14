@@ -2,6 +2,23 @@
 
 This repository is an independently branded source import of Quiet.md. The upstream revision and MIT attribution are recorded in [UPSTREAM.md](../UPSTREAM.md) and [LICENSE](../LICENSE).
 
+## Initial release scope — Linux first
+
+**Linux x64 is the first public-release target**, with an AppImage and
+portable tarball. Native Linux acceptance, package integrity and Linux-only
+signing/distribution are its release gates. **Windows x64 is the next stage:**
+retain the GitHub-hosted builds and installer lifecycle tests, but defer
+Windows distribution until suitable native GUI acceptance is possible.
+macOS remains deferred, with CI compatibility validation where practical.
+
+No Windows or Apple device, Authenticode certificate or Apple Developer ID
+is required to complete the Linux release. Preserve fail-closed signing
+checks if Windows or macOS distribution is later attempted. All currently
+unsigned CI packages remain labeled for testing and automatic updates
+remain disabled.
+
+See the [Linux-first release plan](LINUX_FIRST_RELEASE_PLAN.md).
+
 ## Source-level validation
 
 Run the lightweight brand, attribution, data-safety and icon audit:
@@ -28,14 +45,16 @@ scripts/check.sh
 - Original MIT attributions and third-party notices are included; app-shell Nucleo assets were replaced with Lucide ISC icons.
 - No user library migration is performed automatically.
 
-## Tasks before distributing a signed release
+## Tasks before distributing the initial Linux release
 
-- [ ] Confirm native UI behavior on macOS, Windows and Linux (including Markdown file association, printing, font rendering and install/uninstall).
+- [ ] Run `python3 -B scripts/check-linux-release.py dist/linux` on the paired Linux candidates; check both package checksums, GLIBC compatibility and dependency reports.
+- [ ] Run `scripts/smoke-linux-tarball.sh dist/linux/goreecloud-rich-text-editor-*-linux-x86_64.tar.gz` and the AppImage smoke on candidate packages; these use disposable X11 libraries and do not replace physical-desktop QA.
+- [ ] Verify final AppImage/tarball behavior on a physical Linux desktop: Markdown import/edit, native rich text, Unicode paths, printing/export, fonts, persistence, and interrupted-write recovery. Windows/macOS GUI acceptance is deferred.
 - [ ] Run `scripts/check.sh` and verify the current GitHub Actions CI jobs are green on the release commit.
-- [ ] Configure independent macOS notarization, Windows code-signing and a release/update signing key.
-- [ ] Configure a GoreeCloud-owned download host and R2 bucket, update `src/update.rs` to trust only that host and key, and deliberately enable its updater.
-- [ ] Test installer upgrades, fallback/recovery, and signed update verification on disposable test systems.
-- [ ] Publish signed packages and SHA-256 checksums; keep unsigned CI artifacts labeled for testing only.
+- [ ] Create an independent GoreeCloud minisign key and verify detached signatures on Linux packages. Windows Authenticode and Apple notarization are not Linux release gates.
+- [ ] For signed Linux publishing, configure a GoreeCloud-owned HTTPS host/bucket. Keep `src/update.rs` disabled until independent Linux update and rollback tests pass.
+- [ ] Test manual Linux upgrades, failure/recovery and (later) signed updates on disposable Linux systems.
+- [ ] Publish only verified Linux packages and SHA-256 sidecars with detached signatures once the Linux release gate passes; keep unsigned CI artifacts clearly labeled.
 - [ ] Validate app name, documentation, translated onboarding guides, screenshots, accessibility and any remaining upstream terminology.
 
 The app's core note engine supports both Markdown files and Feishu/Lark DocxXML documents. This project should not claim that every note is stored as Markdown.
