@@ -16,7 +16,9 @@ def field(name):
 assert field("Package") == "goreecloud-rich-text-editor"
 assert field("Architecture") == "amd64"
 assert field("Homepage") == "https://github.com/GoreeCloud/notes"
-assert field("Version").startswith("0.1.10~ci")
+import re
+cargo_version = re.search(r'^version = "([^"]+)"', (root / "Cargo.toml").read_text(), re.MULTILINE).group(1)
+assert field("Version").startswith(cargo_version + "~ci")
 assert "GoreeCloud Notes" in field("Description")
 assert "libc6" in field("Depends")
 checksum = pkg.with_name(pkg.name + ".sha256")
