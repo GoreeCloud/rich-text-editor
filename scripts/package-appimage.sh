@@ -10,7 +10,9 @@ mkdir -p "$out"
 stage=$(mktemp -d)
 trap 'rm -rf "$stage"' EXIT
 tool="$stage/linuxdeploy.AppImage"
-curl --fail --location --retry 3 --proto '=https' --proto-redir '=https' \
+# Do not let ~/.curlrc override TLS, protocol policy or transfer timeouts.
+curl -q --fail --location --retry 3 --connect-timeout 15 --max-time 180 \
+  --proto '=https' --proto-redir '=https' \
   https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20251107-1/linuxdeploy-x86_64.AppImage -o "$tool"
 echo "c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d  $tool" | sha256sum -c -
 chmod +x "$tool"
