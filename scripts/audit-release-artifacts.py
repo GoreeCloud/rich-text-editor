@@ -10,7 +10,7 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import plistlib
 import re
 import struct
@@ -88,16 +88,49 @@ def macos(path: Path, platform: str) -> None:
         fail(f"invalid macOS bundle: {e}")
 
 def linux_tar(path: Path) -> None:
+    base = path.name.removesuffix(".tar.gz")
+    required = [
+        "bin/goreecloud_rich_text_editor", "LICENSE", "THIRD_PARTY.md",
+        "share/applications/com.goreecloud.richtexteditor.desktop",
+        "runtime-libraries.txt",
+    ]
+    seen: dict[str, tarfile.TarInfo] = {}
+    count = total_size = 0
     try:
-        with tarfile.open(path, "r:gz") as tf:
-            names = set(tf.getnames())
-            base = path.name.removesuffix(".tar.gz")
-            for rel in ["bin/goreecloud_rich_text_editor", "LICENSE", "THIRD_PARTY.md",
-                        "share/applications/com.goreecloud.richtexteditor.desktop",
-                        "runtime-libraries.txt"]:
-                if base + "/" + rel not in names: fail(f"missing Linux package member: {rel}")
-    except tarfile.TarError as e:
-        fail(f"invalid Linux archive: {e}")
+        with tarfile.open(path, "r:gz") as archive:
+            for item in archive:
+                name = item.name
+                count += 1
+                if count > 5000:
+                    fail("Linux tarball has too many entries")
+                if (not name or "\\" in name or name.startswith("/")
+                        or ".." in PurePosixPath(name).parts
+                        or not (name == base or name.startswith(base + "/"))):
+                    fail(f"unsafe or unrelated Linux archive path: {name}")
+                if name in seen:
+                    fail(f"duplicate Linux archive member: {name}")
+                if not (item.isfile() or item.isdir()):
+                    fail(f"Linux tarball may not contain links or special members: {name}")
+                if item.mode & 0o6000:
+                    fail(f"Linux tarball must not set privileged file permissions: {name}")
+                if item.isfile():
+                    if item.size < 0 or item.size > 512 * 1024 * 1024:
+                        fail(f"oversized Linux archive member: {name}")
+                    total_size += item.size
+                    if total_size > 1024 * 1024 * 1024:
+                        fail("Linux archive expands beyond safety limit")
+                seen[name] = item
+
+            for rel in required:
+                name = base + "/" + rel
+                member = seen.get(name)
+                if member is None or not member.isfile() or member.size == 0:
+                    fail(f"missing or empty Linux package member: {rel}")
+            binary = seen[base + "/bin/goreecloud_rich_text_editor"]
+            if not binary.mode & 0o111:
+                fail("Linux packaged binary is not executable")
+    except tarfile.TarError as error:
+        fail(f"invalid Linux archive: {error}")
 
 def executable(path: Path, kind: str) -> None:
     with path.open("rb") as f:

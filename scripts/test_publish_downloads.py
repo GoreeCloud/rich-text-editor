@@ -39,6 +39,20 @@ class PublishSafetyTests(unittest.TestCase):
         if kind == "linux":
             name = f"goreecloud-rich-text-editor-{VERSION}-x86_64.AppImage"
             blob = b"\x7fELF" + b"offline test appimage fixture"
+        elif kind == "linux_tar":
+            name = f"goreecloud-rich-text-editor-{VERSION}-linux-x86_64.tar.gz"
+            buffer = io.BytesIO()
+            with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
+                base = name.removesuffix(".tar.gz")
+                for rel in ["bin/goreecloud_rich_text_editor", "LICENSE", "THIRD_PARTY.md",
+                            "share/applications/com.goreecloud.richtexteditor.desktop",
+                            "runtime-libraries.txt"]:
+                    data = b"libc.so.6 => /lib/libc.so.6" if rel == "runtime-libraries.txt" else b"fixture"
+                    item = tarfile.TarInfo(base + "/" + rel)
+                    item.size = len(data)
+                    item.mode = 0o755 if rel.startswith("bin/") else 0o644
+                    archive.addfile(item, io.BytesIO(data))
+            blob = buffer.getvalue()
         elif kind == "windows":
             name = f"goreecloud-rich-text-editor-{VERSION}-windows-x64-setup.exe"
             data = bytearray(140)
@@ -87,6 +101,51 @@ class PublishSafetyTests(unittest.TestCase):
         # Endpoints are normalized without a double slash after the domain.
         self.assertNotIn("example.com//v"+VERSION, result.stdout)
         self.assertNotIn("example.com//latest", result.stdout)
+
+    def test_signed_linux_pair_has_only_one_appimage_update_feed(self):
+        app = self.package("linux")
+        tar = self.package("linux_tar")
+        for order in [(app, tar), (tar, app)]:
+            with self.subTest(order=[p.name for p in order]):
+                result = self.execute(*order)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                puts = [line for line in result.stdout.splitlines() if " r2 object put " in line]
+                # Each Linux file has versioned package, checksum, minisig and latest
+                # link, but ONLY the AppImage should announce an update feed.
+                self.assertEqual(len(puts), 9, puts)
+                self.assertTrue(all("latest/update-" not in line for line in puts[:-1]), puts)
+                self.assertIn("latest/update-linux-x86_64.json", puts[-1])
+                self.assertNotIn("update-linux-x86_64-tar.json", result.stdout)
+                self.assertEqual(sum("latest/goreecloud-rich-text-editor-linux-x86_64.tar.gz" in x for x in puts), 1)
+                self.assertEqual(sum("latest/goreecloud-rich-text-editor-x86_64.AppImage" in x for x in puts), 1)
+                self.assertEqual(sum(".minisig" in x for x in puts), 2)
+
+    def test_linux_tarball_alone_is_manual_only(self):
+        tar = self.package("linux_tar")
+        result = self.execute(tar)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        puts = [line for line in result.stdout.splitlines() if " r2 object put " in line]
+        self.assertEqual(len(puts), 4, puts)
+        self.assertNotIn("latest/update-", result.stdout)
+        self.assertIn("manual Linux tarball", result.stdout)
+        self.assertIn("signing required outside DRY_RUN", result.stdout)
+        self.assertIn("application/gzip", result.stdout)
+
+    def test_corrupt_second_linux_tarball_blocks_all_uploads(self):
+        app, tar = self.package("linux"), self.package("linux_tar")
+        tar.write_bytes(tar.read_bytes() + b"tampered")
+        result = self.execute(app, tar)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("SHA-256", result.stderr)
+        self.assertNotIn(" r2 object put ", result.stdout)
+
+    def test_duplicate_linux_tarball_is_rejected(self):
+        first = self.package("linux_tar", self.dir/"one")
+        second = self.package("linux_tar", self.dir/"two")
+        result = self.execute(first, second)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Duplicate platform", result.stderr)
+        self.assertNotIn(" r2 object put ", result.stdout)
 
     def test_second_corrupt_artifact_blocks_all_uploads(self):
         first, second = self.package("mac"), self.package("mac_intel")
