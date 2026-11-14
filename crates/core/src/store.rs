@@ -297,6 +297,18 @@ fn write_atomic(path: &std::path::Path, bytes: &[u8]) -> Result<()> {
     result
 }
 
+/// New library-owned paths should not inherit a permissive desktop umask.
+/// This never changes permissions of existing directories or imported files.
+pub fn create_private_dir_all(path: &std::path::Path) -> std::io::Result<()> {
+    let mut builder = std::fs::DirBuilder::new();
+    builder.recursive(true);
+    #[cfg(unix)] {
+        use std::os::unix::fs::DirBuilderExt;
+        builder.mode(0o700);
+    }
+    builder.create(path)
+}
+
 fn with_suffix(path: &std::path::Path, suffix: &str) -> PathBuf {
     let mut p = path.as_os_str().to_owned();
     p.push(suffix);
@@ -395,7 +407,7 @@ impl Store {
     /// Where pasted / inserted images are copied to.
     pub fn assets_dir() -> PathBuf {
         let d = Self::root_dir().join("assets");
-        let _ = std::fs::create_dir_all(&d);
+        let _ = create_private_dir_all(&d);
         d
     }
 
@@ -404,7 +416,7 @@ impl Store {
     }
 
     pub fn open_at(root: PathBuf) -> Result<Self> {
-        std::fs::create_dir_all(root.join("docs"))?;
+        create_private_dir_all(&root.join("docs"))?;
         let mut warnings = vec![];
         let marker = root.join("format.json");
         match std::fs::read(&marker).ok().and_then(|b| serde_json::from_slice::<FormatMarker>(&b).ok()) {
@@ -446,7 +458,7 @@ impl Store {
 
     pub fn recover_later(&self, doc: &Document) -> Result<()> {
         let dir = self.recovery_dir();
-        std::fs::create_dir_all(&dir)?;
+        create_private_dir_all(&dir)?;
         write_atomic(&dir.join(format!("{}.xml", uuid::Uuid::new_v4())), docxml::serialize(doc).as_bytes())
     }
 
@@ -515,7 +527,13 @@ impl Store {
     /// this one last looked. Every change is written through, so memory holds
     /// nothing the disk does not. A lock failure must never allow an unguarded write.
     fn begin_write(&mut self) -> Result<WriteLock> {
-        let f = std::fs::OpenOptions::new().create(true).truncate(false).write(true).open(self.root.join(".lock"))?;
+        let mut options = std::fs::OpenOptions::new();
+        options.create(true).truncate(false).write(true);
+        #[cfg(unix)] {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let f = options.open(self.root.join(".lock"))?;
         f.lock()?;
         let lock = WriteLock(f);
         let marker: FormatMarker = serde_json::from_slice(&std::fs::read(self.root.join("format.json"))?)?;
@@ -762,7 +780,7 @@ impl Store {
         let before = self.file_state(id);
         let target = self.trash_path(id);
         anyhow::ensure!(!target.try_exists()?, "回收站已存在同名文档，未覆盖：{id}");
-        std::fs::create_dir_all(self.root.join("trash"))?;
+        create_private_dir_all(&self.root.join("trash"))?;
         // Persist destination metadata before moving content. An interrupted
         // move leaves an extra index entry, never an unindexed trashed file.
         let mut trash = self.trash.clone();
@@ -782,7 +800,7 @@ impl Store {
 
     pub fn trash_dir(&self) -> PathBuf {
         let d = self.root.join("trash");
-        let _ = std::fs::create_dir_all(&d);
+        let _ = create_private_dir_all(&d);
         d
     }
 
@@ -1066,6 +1084,28 @@ impl Store {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn new_library_is_private_without_changing_imported_paths() {
+        use std::os::unix::fs::PermissionsExt;
+        let lib = Lib::new("private-default");
+        let mut store = lib.open();
+        let root = &lib.0;
+        let docs = root.join("docs");
+        for path in [root, &docs] {
+            let mode = std::fs::metadata(path).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode, 0o700, "{path:?} must be owner-only");
+        }
+        let (id, _) = store.create().unwrap();
+        let doc = docs.join(format!("{id}.xml"));
+        for path in [&root.join("format.json"), &root.join("index.json"), &root.join(".lock"), &doc] {
+            let mode = std::fs::metadata(path).unwrap().permissions().mode() & 0o777;
+            assert_eq!(mode, 0o600, "{path:?} must be owner-only");
+        }
+        let trash = store.trash_dir();
+        assert_eq!(std::fs::metadata(trash).unwrap().permissions().mode() & 0o777, 0o700);
+    }
 
     /// A library in a fresh temporary folder, removed on drop.
     struct Lib(PathBuf);
