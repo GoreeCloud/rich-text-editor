@@ -18,7 +18,7 @@ const WINDOWS_TEXT: &[(&str, &str)] = &[
     ("On macOS, <code>⌘ ⌃ ⇧ 4</code> captures a selection to the clipboard.", "<code>Win+Shift+S</code> captures a selection to the clipboard."),
     ("Drag an image from Finder into the document.", "Drag an image from File Explorer into the document."),
     ("a project banner from your Mac.", "a project banner from your computer."),
-    ("<h2>Move to another Mac</h2><ol><li>Quit GoreeCloud Notes on the old Mac with", "<h2>Move to another computer</h2><ol><li>Quit GoreeCloud Notes on the old computer with"),
+    ("<h2>Move to another Mac</h2><ol><li>Quit GoreeCloud Rich Text Editor on the old Mac with", "<h2>Move to another computer</h2><ol><li>Quit GoreeCloud Notes on the old computer with"),
     ("Copy the complete GoreeCloud Rich Text Editor folder into Documents on the new Mac.", "Copy the complete GoreeCloud Rich Text Editor folder into Documents on the new computer."),
     ("Press a new combination containing Command, Control or Option.", "Press a new combination containing Ctrl or Alt."),
     ("Hold <code>⌥</code> to do the same for every folder inside.", "Hold <code>Alt</code> to do the same for every folder inside."),
@@ -26,6 +26,11 @@ const WINDOWS_TEXT: &[(&str, &str)] = &[
     ("<p>A global shortcut can open a small note window while you are using another app. Write the thought down, then close the window; it is saved with your documents.</p><ul><li>Enable the global quick-note shortcut in Settings › Shortcuts.</li><li>The default is <code>⌥ Space</code>. If another app already uses it, choose another combination, such as <code>⌥ ⇧ Space</code>. Registration failures are shown in settings.</li>",
      "<p>A note window is a small window of its own for writing a thought down. Close it when you are done; the note is saved with your documents.</p><ul>"),
 ];
+
+/// Only transform bundled first-launch guide text; never rewrite existing user documents.
+fn name_new_guide(xml: &str) -> String {
+    xml.replace("GoreeCloud Rich Text Editor", "GoreeCloud Notes")
+}
 
 /// A guide document as the Windows build seeds it: Ctrl / Alt keys, no Mac-only steps.
 pub fn for_windows(xml: &str) -> String {
@@ -48,9 +53,12 @@ pub fn initialize(root: &Path) -> anyhow::Result<()> {
     for (name, bytes) in FILES {
         let path = pending.join(name);
         fs::create_dir_all(path.parent().unwrap())?;
-        let windows = cfg!(target_os = "windows") && name.starts_with("docs/") && name.ends_with(".xml");
+        let guide = name.starts_with("docs/") && name.ends_with(".xml");
         match std::str::from_utf8(bytes) {
-            Ok(xml) if windows => fs::write(path, for_windows(xml))?,
+            Ok(xml) if guide => {
+                let adapted = if cfg!(target_os = "windows") { for_windows(xml) } else { xml.to_owned() };
+                fs::write(path, name_new_guide(&adapted))?;
+            }
             _ => fs::write(path, bytes)?,
         }
     }
@@ -91,6 +99,14 @@ mod tests {
         assert!(all.contains("<code>Ctrl+B</code>") && all.contains("<code>Ctrl+Alt+1</code>") && all.contains("<code>Ctrl+Shift+C</code>"));
         let mac = |l: &&str| l.contains(['⌘', '⌥', '⇧', '⌃']);
         assert!(!all.lines().any(|l| mac(&l)), "{}", all.lines().find(mac).unwrap_or_default());
+    }
+
+    /// The new product name is seeded only for fresh libraries.
+    #[test]
+    fn fresh_guides_have_new_name_without_rewriting_storage_paths() {
+        assert_eq!(super::name_new_guide("<title>GoreeCloud Rich Text Editor</title>"),
+            "<title>GoreeCloud Notes</title>");
+        assert_eq!(super::name_new_guide("no product title"), "no product title");
     }
 
     /// Copies launched together on a new library: one seeds it, none fails.
