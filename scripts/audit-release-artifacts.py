@@ -112,7 +112,7 @@ def executable(path: Path, kind: str) -> None:
             f.seek(offset)
             if f.read(4) != b"PE\0\0": fail("Windows setup is not a PE executable")
 
-def verify_distribution(path: Path, platform: str) -> None:
+def verify_distribution(path: Path, platform: str, signature_file: Path | None = None) -> None:
     if os.environ.get("GOREECLOUD_RELEASE_ENABLED") != "yes":
         fail("distribution disabled; set GOREECLOUD_RELEASE_ENABLED=yes after configuring signing and hosting")
     from urllib.parse import urlsplit
@@ -144,7 +144,7 @@ def verify_distribution(path: Path, platform: str) -> None:
                 subprocess.run(cmd, check=True)
             result = subprocess.run(["codesign", "-dv", "--verbose=4", app],
                                     capture_output=True, text=True, check=True)
-            if f"TeamIdentifier={team}" not in result.stderr:
+            if f"TeamIdentifier={team}" not in result.stderr.splitlines():
                 fail("macOS code-signing TeamIdentifier does not match GOREECLOUD_APPLE_TEAM_ID")
     elif platform == "windows-x64":
         if sys.platform != "win32": fail("signed Windows setup must be verified on Windows")
@@ -162,11 +162,11 @@ def verify_distribution(path: Path, platform: str) -> None:
         public = ROOT / "packaging/update-key.pub"
         if not public.read_text().startswith("untrusted comment:"):
             fail("GoreeCloud minisign public key is not configured")
-        signature = path.with_name(path.name + ".minisig")
+        signature = signature_file or path.with_name(path.name + ".minisig")
         if not signature.is_file(): fail("no detached minisign signature")
         subprocess.run(["minisign", "-Vm", str(path), "-x", str(signature), "-p", str(public)], check=True)
 
-def audit(path: Path, distribution: bool) -> dict[str, object]:
+def audit(path: Path, distribution: bool, signature_file: Path | None = None) -> dict[str, object]:
     if not path.is_file(): fail(f"missing artifact: {path}")
     kind, v = classify(path.name)
     if v != version(): fail(f"{path.name} is version {v}; Cargo.toml expects {version()}")
@@ -174,7 +174,9 @@ def audit(path: Path, distribution: bool) -> dict[str, object]:
     if kind.startswith("macos"): macos(path, kind)
     elif kind == "linux-x86_64-tar": linux_tar(path)
     else: executable(path, kind)
-    if distribution: verify_distribution(path, kind)
+    if signature_file and not kind.startswith("linux"):
+        fail("--signature-file is only valid for a Linux artifact")
+    if distribution: verify_distribution(path, kind, signature_file)
     return {"artifact": path.name, "platform": kind, "version": v,
             "sha256": digest, "bytes": path.stat().st_size,
             "verified": "platform signature and distribution checks" if distribution else
@@ -185,11 +187,16 @@ def main() -> int:
     parser.add_argument("--distribution", action="store_true",
                         help="verify native signing/notarization or minisign; reject if unconfigured")
     parser.add_argument("--json", action="store_true", help="print report JSON")
+    parser.add_argument("--signature-file", type=Path,
+                        help="Linux: detached minisign signature from the temporary signing stage")
     parser.add_argument("artifacts", nargs="+", type=Path)
     args = parser.parse_args()
+    if args.signature_file and (not args.distribution or len(args.artifacts) != 1):
+        parser.error("--signature-file requires --distribution and exactly one Linux artifact")
     reports = []
     for artifact in args.artifacts:
-        try: reports.append(audit(artifact.resolve(), args.distribution))
+        try: reports.append(audit(artifact.resolve(), args.distribution,
+                                 args.signature_file.resolve() if args.signature_file else None))
         except (ValueError, OSError, subprocess.CalledProcessError) as error:
             print(f"FAIL: {artifact}: {error}", file=sys.stderr)
             return 1
