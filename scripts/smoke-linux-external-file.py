@@ -34,6 +34,11 @@ def main() -> int:
     source = "# External Markdown 中文\n\nDo not overwrite before editing 🌟\n".encode("utf-8")
     external.write_bytes(source)
     ignored.write_text("Do not open this plain-text fixture.\n", encoding="utf-8")
+    # This is a *private* existing note. Saving an edit must not widen
+    # its filesystem permissions to group/world-readable.
+    if os.name == "posix":
+        external.chmod(0o600)
+    original_mode = external.stat().st_mode & 0o777
     original_timestamp = external.stat().st_mtime_ns
 
     env = dict(os.environ, HOME=str(root / "home"),
@@ -146,6 +151,8 @@ def main() -> int:
                 "wait 1700\nclick 675 520\nwait 250\nkey ctrl-end\n"
                 "type " + edit_marker + "\nwait 2500\nquit\n")
         edited = external.read_bytes()
+        if external.stat().st_mode & 0o777 != original_mode:
+            raise AssertionError("Saving external Markdown widened its private file permissions")
         if edit_marker.encode("utf-8") not in edited:
             raise AssertionError("The GUI edit was not saved to the original Markdown path")
         if edited == source:
@@ -161,6 +168,8 @@ def main() -> int:
         session("reopen-edited-external-markdown", [])
         if external.read_bytes() != edited:
             raise AssertionError("Reopening changed saved external Markdown contents")
+        if external.stat().st_mode & 0o777 != original_mode:
+            raise AssertionError("Reopening changed external file permissions")
         if edit_marker.encode("utf-8") not in external.read_bytes():
             raise AssertionError("External edit did not persist across application restart")
         if ignored.read_text(encoding="utf-8") != "Do not open this plain-text fixture.\n":
