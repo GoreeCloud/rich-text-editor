@@ -2,6 +2,26 @@
 
 This repository is an independently branded source import of Quiet.md. The upstream revision and MIT attribution are recorded in [UPSTREAM.md](../UPSTREAM.md) and [LICENSE](../LICENSE).
 
+## Initial release scope — Windows and Linux first
+
+**Decided 2026-11-13:** the project is not pursuing Apple Developer ID
+signing or notarization for the initial release. First-release acceptance
+therefore targets **Windows x64** and **Linux x64**. macOS is a deferred
+distribution target, not a blocker for either of those operating systems.
+Keep macOS CI compilation/tests and explicitly unsigned validation artifacts
+as engineering coverage where practical; do not present them as signed,
+notarized, or supported public macOS installers.
+
+The cross-platform release scripts continue to require legitimate Apple
+signing/notarization **only if a macOS release is later attempted**.
+Never bypass those checks or use another developer's credentials.
+The Windows/Linux route still requires its **own** distribution checks,
+publisher verification and safe installation QA; deferring Apple does not
+make unsigned Windows installers or an unconfigured updater safe to ship.
+
+See [Windows/Linux release plan](WINDOWS_LINUX_RELEASE_PLAN.md) for the
+concrete initial milestones and remaining owner-controlled prerequisites.
+
 ## Source-level validation
 
 Run the lightweight brand, attribution, data-safety and icon audit:
@@ -28,11 +48,11 @@ scripts/check.sh
 - Original MIT attributions and third-party notices are included; app-shell Nucleo assets were replaced with Lucide ISC icons.
 - No user library migration is performed automatically.
 
-## Tasks before distributing a signed release
+## Tasks before distributing an initial Windows/Linux release
 
-- [ ] Confirm native UI behavior on macOS, Windows and Linux (including Markdown file association, printing, font rendering and install/uninstall).
+- [ ] Confirm native UI behavior on Windows and Linux (including Markdown file association, printing, font rendering and install/uninstall). macOS UI acceptance is deferred.
 - [ ] Run `scripts/check.sh` and verify the current GitHub Actions CI jobs are green on the release commit.
-- [ ] Configure independent macOS notarization, Windows code-signing and a release/update signing key.
+- [ ] Configure Windows code-signing and an independent GoreeCloud release/update signing key. Apple notarization is deferred and is **not** required for Windows/Linux.
 - [ ] Configure a GoreeCloud-owned download host and R2 bucket, update `src/update.rs` to trust only that host and key, and deliberately enable its updater.
 - [ ] Test installer upgrades, fallback/recovery, and signed update verification on disposable test systems.
 - [ ] Publish signed packages and SHA-256 checksums; keep unsigned CI artifacts labeled for testing only.
