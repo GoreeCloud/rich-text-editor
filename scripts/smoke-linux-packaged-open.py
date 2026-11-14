@@ -119,8 +119,17 @@ def main() -> int:
                     raise AssertionError("External Markdown modified without explicit edits")
                 if other.read_text(encoding="utf-8") != "Must not open as Markdown.\n":
                     raise AssertionError("Non-Markdown command-line file was modified")
+                # Production builds intentionally seed 12 built-in onboarding
+                # documents in library/docs. Those are NOT copies of the
+                # external Markdown source: detect the unique external body
+                # text or a stray .md, rather than forbidding all guides.
                 docdir = root / "library" / "docs"
-                if docdir.exists() and any(docdir.iterdir()):
+                if docdir.exists() and any(
+                    item.is_file() and (
+                        item.suffix.lower() in (".md", ".markdown", ".mdown")
+                        or b"Open this note without writing" in item.read_bytes())
+                    for item in docdir.rglob("*")
+                ):
                     raise AssertionError("External Markdown was copied into the notes library")
             finally:
                 try:

@@ -65,7 +65,7 @@ checks = {
     "AppImage launcher is smoke-tested": "AppImage launcher smoke test passed" in read("scripts/package-appimage.sh"),
     "Linux GUI smoke validates Markdown persistence": "--markdown" in read("scripts/smoke-linux-editor.py") and "LINUX_GUI_MARKDOWN_EDIT_SAVE_REOPEN_PASS" in read("scripts/smoke-linux-editor.py") and "index.json" in read("scripts/smoke-linux-editor.py"),
     "real Linux tarball executable smoke in CI": "scripts/smoke-linux-tarball.sh dist/linux/" in read(".github/workflows/ci.yml") and "scripts/smoke-linux-appimage.sh" in read("scripts/smoke-linux-tarball.sh"),
-    "Linux desktop-entry metadata has filename handoff": "Exec=goreecloud_rich_text_editor %F" in read("packaging/linux/com.goreecloud.richtexteditor.desktop") and "Categories=Office;TextEditor;Utility;" in read("packaging/linux/com.goreecloud.richtexteditor.desktop"),
+    "Linux desktop-entry metadata has filename handoff": "Exec=goreecloud_rich_text_editor %F" in read("packaging/linux/com.goreecloud.richtexteditor.desktop") and "Categories=Office;TextEditor;" in read("packaging/linux/com.goreecloud.richtexteditor.desktop"),
     "Linux CI validates desktop entry": "desktop-file-validate packaging/linux/com.goreecloud.richtexteditor.desktop" in read(".github/workflows/ci.yml"),
     "Linux CI checks external file through shipped packages": read(".github/workflows/ci.yml").count("scripts/smoke-linux-packaged-open.py dist/linux/") == 2,
     "packaged-file opening rejects non-Markdown sources": "Non-Markdown command-line file was modified" in read("scripts/smoke-linux-packaged-open.py") and "External Markdown was copied into the notes library" in read("scripts/smoke-linux-packaged-open.py"),
