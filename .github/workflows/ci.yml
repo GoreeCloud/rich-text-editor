@@ -145,7 +145,7 @@ jobs:
         if: steps.filter.outputs.skip != 'true'
         shell: pwsh
         run: |
-          foreach ($path in @('scripts/package-windows.ps1', 'scripts/sign-windows-file.ps1')) {
+          foreach ($path in @('scripts/package-windows.ps1', 'scripts/sign-windows-file.ps1', 'scripts/smoke-windows-installer.ps1')) {
             $tokens = $null
             $errors = $null
             [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path), [ref]$tokens, [ref]$errors) | Out-Null
@@ -179,6 +179,17 @@ jobs:
           if ($packages.Count -ne 1) { throw 'Expected exactly one unsigned validation installer' }
           python scripts/audit-release-artifacts.py $packages[0].FullName
           if ($LASTEXITCODE -ne 0) { throw 'Windows artifact audit failed' }
+
+      - name: Smoke-test Windows installation, reinstall and uninstall
+        if: steps.filter.outputs.skip != 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $packages = @(Get-ChildItem dist/windows/unsigned -Filter '*.exe')
+          if ($packages.Count -ne 1) { throw 'Expected exactly one unsigned validation installer' }
+          # PowerShell scripts propagate errors through throw; LASTEXITCODE
+          # is only for native executables and may be stale from earlier steps.
+          & scripts/smoke-windows-installer.ps1 -Installer $packages[0].FullName
 
       - name: Upload Windows installer
         if: steps.filter.outputs.skip != 'true'
