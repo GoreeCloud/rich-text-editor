@@ -261,6 +261,12 @@ jobs:
         if: steps.filter.outputs.skip != 'true'
         run: scripts/package-linux.sh
 
+      - name: Build and audit unsigned Debian development package
+        if: steps.filter.outputs.skip != 'true'
+        run: |
+          bash scripts/package-debian.sh
+          python3 -B scripts/test_debian_package.py
+
       - name: Build and inspect AppImage
         if: steps.filter.outputs.skip != 'true'
         run: scripts/package-appimage.sh
