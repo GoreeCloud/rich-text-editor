@@ -70,6 +70,7 @@ checks = {
     "Linux AppImage downloader disables curlrc": "curl -q --fail --location" in read("scripts/package-appimage.sh"),
     "Linux candidate gate caps GLIBC": "highest[:2] > (2, 35)" in read("scripts/check-linux-release.py"),
     "Linux CI opens external Unicode Markdown in place": "scripts/smoke-linux-external-file.py target/release/goreecloud_rich_text_editor" in read(".github/workflows/ci.yml"),
+    "external Markdown GUI preserves private 0600 mode": "external.chmod(0o600)" in read("scripts/smoke-linux-external-file.py") and "Saving external Markdown widened its private file permissions" in read("scripts/smoke-linux-external-file.py"),
     "Linux GUI edits and persists original external Markdown": "LINUX_GUI_EXTERNAL_MARKDOWN_EDIT_SAVE_REOPEN_PASS" in read("scripts/smoke-linux-external-file.py") and "edit_marker.encode" in read("scripts/smoke-linux-external-file.py"),
     "external Markdown GUI smoke preserves original source": "external.stat().st_mtime_ns != original_timestamp" in read("scripts/smoke-linux-external-file.py") and "external.read_bytes() != source" in read("scripts/smoke-linux-external-file.py"),
     "external Markdown GUI smoke rejects non-Markdown and duplicate index": "Reopening created a duplicate local-file record" in read("scripts/smoke-linux-external-file.py") and "Non-Markdown command-line file was accepted" in read("scripts/smoke-linux-external-file.py"),

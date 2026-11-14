@@ -261,14 +261,32 @@ struct FormatMarker {
 }
 
 /// Write `bytes` to `path` through a temporary file, so a crash leaves
-/// either the old or the new contents.
+/// either the old or the new contents. When replacing an existing file,
+/// preserve its permissions: external Markdown files may be private (0600)
+/// or intentionally executable. On Unix, keep the new temporary file private
+/// (0600) even while its contents are being written.
 fn write_atomic(path: &std::path::Path, bytes: &[u8]) -> Result<()> {
+    let previous_permissions = match std::fs::metadata(path) {
+        Ok(metadata) => Some(metadata.permissions()),
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
+        Err(err) => return Err(err.into()),
+    };
     let mut tmp = path.as_os_str().to_owned();
     tmp.push(format!(".{}.tmp", uuid::Uuid::new_v4()));
     let tmp = PathBuf::from(tmp);
     let result = (|| -> Result<()> {
-        let mut file = std::fs::OpenOptions::new().write(true).create_new(true).open(&tmp)?;
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut file = options.open(&tmp)?;
         file.write_all(bytes)?;
+        if let Some(permissions) = previous_permissions {
+            file.set_permissions(permissions)?;
+        }
         file.sync_all()?;
         std::fs::rename(&tmp, path)?;
         #[cfg(unix)]
@@ -1172,6 +1190,43 @@ mod tests {
         assert!(renamed.is_file());
         assert!(s.list().iter().all(|e| e.id != id));
         assert!(s.list_trash().is_empty());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn local_markdown_save_keeps_original_private_and_executable_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        let lib = Lib::new("local-file-mode");
+        let outside = lib.0.join("external");
+        std::fs::create_dir_all(&outside).unwrap();
+        let mut store = lib.open();
+        // Private notes must never become group/world-readable when an
+        // atomic rename replaces their inode. Preserve intentional modes
+        // for non-private files too.
+        for mode in [0o600, 0o640, 0o755] {
+            let path = outside.join(format!("Markdown 中文 {mode:o}.md"));
+            std::fs::write(&path, "# Private Note\n\nOriginal text\n").unwrap();
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(mode)).unwrap();
+            let id = store.open_local(&path).unwrap();
+            let mut doc = store.load_for_edit(&id, false).unwrap();
+            doc.blocks.push(crate::model::Block::text("saved safely"));
+            store.save(&id, &doc).unwrap();
+            assert!(std::fs::read_to_string(&path).unwrap().contains("saved safely"));
+            assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, mode,
+                "Saving external Markdown changed file permissions");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn new_atomic_note_files_start_private() {
+        use std::os::unix::fs::PermissionsExt;
+        let lib = Lib::new("atomic-private");
+        std::fs::create_dir_all(&lib.0).unwrap();
+        let path = lib.0.join("fresh-note.md");
+        write_atomic(&path, b"# A private new note\n").unwrap();
+        assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
+        assert_eq!(std::fs::read(&path).unwrap(), b"# A private new note\n");
     }
 
     /// Images from the library used in a 本机文件 are copied beside it:

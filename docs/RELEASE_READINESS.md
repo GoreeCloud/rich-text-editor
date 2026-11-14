@@ -66,8 +66,11 @@ unchanged, the file is linked in the library rather than copied, unrelated
 non-Markdown command-line files are ignored, and the same local-file record
 survives closing/reopening the app. It then edits the original file through
 the GUI, verifies Unicode text was saved at that **same external path**,
-and checks its bytes survive another full restart. Printing/export and
-additional real desktop environments still require separate acceptance.
+and checks its bytes survive another full restart. The external note is
+explicitly marked `0600` before opening; its private permissions
+must remain unchanged after saving and reopening. Existing nonprivate modes
+are covered by Rust storage tests. Printing/export and additional real
+desktop environments still require separate acceptance.
 
 ## Import hardening checks
 
