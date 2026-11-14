@@ -50,6 +50,7 @@ scripts/check.sh
 - [ ] Run `python3 -B scripts/check-linux-release.py dist/linux` on the paired Linux candidates; check both package checksums, GLIBC compatibility and dependency reports.
 - [ ] Run `scripts/smoke-linux-tarball.sh dist/linux/goreecloud-rich-text-editor-*-linux-x86_64.tar.gz` and the AppImage smoke on candidate packages; these use disposable X11 libraries and do not replace physical-desktop QA.
 - [ ] Confirm `scripts/smoke-linux-packaged-open.py` passes for **both** final Linux packages; separately validate `%F` desktop-entry file handoff on a physical desktop.
+- [ ] Run `scripts/smoke-linux-default-library.py` on the final AppImage; confirm a new library is created separately from any existing Quiet.md directory.
 - [ ] Verify final AppImage/tarball behavior on a physical Linux desktop: Markdown import/edit, native rich text, Unicode paths, printing/export, fonts, persistence, and interrupted-write recovery. Windows/macOS GUI acceptance is deferred.
 - [ ] Run `scripts/check.sh` and verify the current GitHub Actions CI jobs are green on the release commit.
 - [ ] Create an independent **production** GoreeCloud minisign key and verify detached signatures on Linux packages. CI only uses disposable test keys; Windows Authenticode and Apple notarization are not Linux release gates.
