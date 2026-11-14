@@ -63,6 +63,19 @@ The existing Linux desktop has been visually checked on a real hardware-backed d
 The Linux real-AppImage smoke also bounds diagnostic output and reaps any extracted child process that inherited the unique disposable library marker, even if the AppImage launcher exits first. The test was validated against both a good package and the original broken launcher, with no leftover process or disk-space growth.
 
 
+## Windows installer lifecycle automation
+
+The Windows CI job now runs the freshly built unsigned Inno Setup installer
+in the ephemeral GitHub runner account, using a unique temporary application
+folder and separate Markdown notes folder. It verifies the installed program,
+C++ runtime, required legal notices and per-user Markdown association, then
+reinstalls the same version and silently uninstalls. SHA-256 checks ensure
+independent Unicode/space-containing Markdown notes remain unchanged. A
+120-second timeout applies to each installer process. Outside GitHub Actions,
+this script requires an explicit GOREECLOUD_WINDOWS_SMOKE_TEST=yes opt-in on a
+throwaway Windows account. It **does not** substitute for interactive GUI QA
+or test signed production installer trust dialogs on an end-user machine.
+
 ## Pre-activation updater protocol hardening
 
 Automatic updates are still disabled. When the channel is eventually enabled,
@@ -89,3 +102,9 @@ has uploaded and is reachable. This still does not make independent multi-OS
 rollouts atomic. Offline dry-run tests exercise positive and adversarial
 publishing scenarios on both macOS and Linux CI runners. No release signing
 keys or host have been configured.
+
+Optional remote-image fetching also uses `curl -q` as its first argument so existing user `.curlrc` settings cannot silently override TLS verification, network protocols, or transfer limits. This is checked by the web-image Rust test and rebrand guard.
+
+Windows remote-image fetching streams through a Rust-opened local file rather than passing the cache path as a curl.exe output argument; this protects Unicode user-folder paths and suppresses curl console flashes. The Rust integration test fetches an original PNG from an in-process 127.0.0.1 server into a Unicode file, with no outside network access.
+
+Windows Unicode-path remote image downloads explicitly request curl binary stdout (`--output -`) and let Rust write the decoded cache path natively. This avoids code-page corruption in file arguments and the binary-output fallback on Windows.
