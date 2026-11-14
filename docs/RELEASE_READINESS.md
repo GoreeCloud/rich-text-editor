@@ -61,3 +61,17 @@ The [release operations runbook](RELEASE_OPERATIONS.md) contains platform-specif
 The existing Linux desktop has been visually checked on a real hardware-backed desktop using a **disposable isolated notes library** and an app-only screenshot. The sidebar, text, document cards and images rendered; this does not replace full interaction, printing, accessibility or macOS/Windows installation tests. No signing certificates or notarization credentials have been connected, and the update channel remains disabled.
 
 The Linux real-AppImage smoke also bounds diagnostic output and reaps any extracted child process that inherited the unique disposable library marker, even if the AppImage launcher exits first. The test was validated against both a good package and the original broken launcher, with no leftover process or disk-space growth.
+
+
+## Windows installer lifecycle automation
+
+The Windows CI job now runs the freshly built unsigned Inno Setup installer
+in the ephemeral GitHub runner account, using a unique temporary application
+folder and separate Markdown notes folder. It verifies the installed program,
+C++ runtime, required legal notices and per-user Markdown association, then
+reinstalls the same version and silently uninstalls. SHA-256 checks ensure
+independent Unicode/space-containing Markdown notes remain unchanged. A
+120-second timeout applies to each installer process. Outside GitHub Actions,
+this script requires an explicit GOREECLOUD_WINDOWS_SMOKE_TEST=yes opt-in on a
+throwaway Windows account. It **does not** substitute for interactive GUI QA
+or test signed production installer trust dialogs on an end-user machine.
