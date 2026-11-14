@@ -1,4 +1,4 @@
-# GoreeCloud Rich Text Editor
+# GoreeCloud Notes
 
 本地优先的桌面笔记应用、Markdown 编辑器与查看器、富文本编辑器。
 

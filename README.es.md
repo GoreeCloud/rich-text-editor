@@ -1,4 +1,4 @@
-# GoreeCloud Rich Text Editor
+# GoreeCloud Notes
 
 Aplicación de notas local para escritorio, editor y visor de Markdown y editor de texto enriquecido.
 
