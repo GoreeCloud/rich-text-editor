@@ -2313,8 +2313,22 @@ mod tests {
                 match listener.accept() {
                     Ok((mut stream, _)) => {
                         stream.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
-                        let mut request = [0u8; 2048];
-                        let _ = stream.read(&mut request);
+                        // A single TCP read need not contain the entire GET
+                        // request. Responding and dropping the socket while
+                        // the rest of the headers are unread can send an RST
+                        // on Windows, making curl report an incomplete
+                        // response. Read a complete, bounded request first.
+                        let mut request = Vec::with_capacity(2048);
+                        let mut chunk = [0u8; 2048];
+                        loop {
+                            let n = stream.read(&mut chunk).unwrap();
+                            assert!(n != 0, "local curl fixture closed before HTTP headers");
+                            request.extend_from_slice(&chunk[..n]);
+                            assert!(request.len() <= 8192, "unexpected oversized curl request headers");
+                            if request.windows(4).any(|part| part == b"\r\n\r\n") { break; }
+                        }
+                        assert!(request.starts_with(b"GET /pixel.png HTTP/1.1\r\n"),
+                            "local curl fixture received the wrong request");
                         let response = format!("HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", served.len());
                         stream.write_all(response.as_bytes()).unwrap();
                         stream.write_all(&served).unwrap();
