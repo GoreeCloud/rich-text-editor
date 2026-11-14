@@ -7,6 +7,7 @@ import sys
 
 os.chdir(Path(__file__).resolve().parent.parent)
 subprocess.run([sys.executable, "scripts/rebrand_guard.py"], check=True)
+subprocess.run([sys.executable, "scripts/check-official-notes-icon.py"], check=True)
 def cargo(*args, env=None):
     subprocess.run(["cargo", *args], check=True, env=env)
 
