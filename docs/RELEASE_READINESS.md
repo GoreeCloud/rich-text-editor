@@ -90,6 +90,20 @@ transfer to the validated manifest size. A detached minisign signature and
 matching trusted comment remain mandatory for the actual payload.
 These limits are exercised in Rust tests without contacting a network.
 
+## Linux interactive editing regression
+
+Linux CI now builds an explicitly **devtools-only** binary and launches it
+in two temporary Xvfb sessions using isolated HOME/XDG directories and a
+unique notes library. A synthetic GPUI left click establishes editor focus,
+Ctrl+N creates a rich-text note, typing changes both its title and body, and
+the test waits for save. It verifies the serialized note contains distinct
+title and body tokens, reopens the same library in a new process and checks
+the file's SHA-256 remains identical. The script bounds diagnostics,
+terminates its own process group, and deletes the temporary library only
+after success. This is an editor persistence regression test, **not** proof
+of final rendering quality, real keyboard accessibility, PDF printing, or
+signed Windows/macOS releases.
+
 ## Distribution upload preflight
 
 Before any real release upload, the publisher now checks every input, refuses
@@ -102,6 +116,7 @@ has uploaded and is reachable. This still does not make independent multi-OS
 rollouts atomic. Offline dry-run tests exercise positive and adversarial
 publishing scenarios on both macOS and Linux CI runners. No release signing
 keys or host have been configured.
+
 
 Optional remote-image fetching also uses `curl -q` as its first argument so existing user `.curlrc` settings cannot silently override TLS verification, network protocols, or transfer limits. This is checked by the web-image Rust test and rebrand guard.
 
