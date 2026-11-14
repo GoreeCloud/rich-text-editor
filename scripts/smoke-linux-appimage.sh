@@ -64,7 +64,7 @@ timeout --signal=TERM --kill-after=3s 35s xvfb-run -a -s "-screen 0 1280x800x24"
   trap "kill -TERM $child 2>/dev/null || :; wait $child 2>/dev/null || :" EXIT
   found=0
   for i in $(seq 1 80); do
-    if xwininfo -root -tree 2>/dev/null | grep -Fq "\"GoreeCloud Rich Text Editor\""; then found=1; break; fi
+    if xwininfo -root -tree 2>/dev/null | grep -Fq "\"GoreeCloud Notes\""; then found=1; break; fi
     if ! kill -0 "$child" 2>/dev/null; then break; fi
     sleep .2
   done

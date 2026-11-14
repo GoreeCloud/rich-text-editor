@@ -30,20 +30,20 @@ pub fn set_menus(cx: &mut App) {
     use crate::settings::tr;
     cx.set_menus(vec![
         Menu {
-            name: "GoreeCloud Rich Text Editor".into(),
+            name: "GoreeCloud Notes".into(),
             items: vec![
-                MenuItem::action(tr("关于 GoreeCloud Rich Text Editor", "About GoreeCloud Rich Text Editor"), OpenAbout),
+                MenuItem::action(tr("关于 GoreeCloud Notes", "About GoreeCloud Notes"), OpenAbout),
                 MenuItem::action(tr("检查更新…", "Check for Updates…"), CheckForUpdates),
                 MenuItem::separator(),
                 MenuItem::action(tr("设置…", "Settings…"), OpenSettings),
                 MenuItem::separator(),
                 MenuItem::os_submenu(tr("服务", "Services"), SystemMenuType::Services),
                 MenuItem::separator(),
-                MenuItem::action(tr("隐藏 GoreeCloud Rich Text Editor", "Hide GoreeCloud Rich Text Editor"), HideApp),
+                MenuItem::action(tr("隐藏 GoreeCloud Notes", "Hide GoreeCloud Notes"), HideApp),
                 MenuItem::action(tr("隐藏其他", "Hide Others"), HideOthers),
                 MenuItem::action(tr("全部显示", "Show All"), ShowAll),
                 MenuItem::separator(),
-                MenuItem::action(tr("退出 GoreeCloud Rich Text Editor", "Quit GoreeCloud Rich Text Editor"), Quit),
+                MenuItem::action(tr("退出 GoreeCloud Notes", "Quit GoreeCloud Notes"), Quit),
             ],
         },
         Menu {

@@ -1,4 +1,4 @@
-# GoreeCloud Rich Text Editor
+# GoreeCloud Notes
 
 로컬 우선 데스크톱 메모 앱, Markdown 편집기 및 뷰어, 리치 텍스트 편집기입니다.
 

@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
-Name=GoreeCloud Rich Text Editor
-Comment=Local notes
+Name=GoreeCloud Notes
+Comment=Local-first Markdown and rich-text notes
 Exec=goreecloud_rich_text_editor %F
 Icon=com.goreecloud.richtexteditor
 Terminal=false

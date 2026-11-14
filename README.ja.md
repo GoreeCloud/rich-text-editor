@@ -1,4 +1,4 @@
-# GoreeCloud Rich Text Editor
+# GoreeCloud Notes
 
 ローカルファーストのデスクトップノートアプリ、Markdown エディター／ビューアー、リッチテキストエディターです。
 

@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def main():
-    repository = os.environ.get('GITHUB_REPOSITORY', 'GoreeCloud/rich-text-editor')
+    repository = os.environ.get('GITHUB_REPOSITORY', 'GoreeCloud/notes')
     pages = json.loads(subprocess.check_output([
         'gh', 'api', '--paginate', '--slurp',
         f'repos/{repository}/contributors?per_page=100',
@@ -26,7 +26,7 @@ def main():
     rows = (len(contributors) + columns - 1) // columns
     width, height = columns * 68 - 4, rows * 68 - 4
     parts = [f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
-             '<title>GoreeCloud Rich Text Editor contributors</title>']
+             '<title>GoreeCloud Notes contributors</title>']
     for index, person in enumerate(contributors):
         url = urlsplit(person['avatar_url'])
         if url.scheme != 'https' or url.hostname != 'avatars.githubusercontent.com':
