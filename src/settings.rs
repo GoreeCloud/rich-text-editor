@@ -205,12 +205,27 @@ pub fn prefs() -> Preferences {
 pub(crate) fn save(p: &Preferences) -> anyhow::Result<()> {
     use std::io::Write;
     let root = crate::store::Store::root_dir();
-    std::fs::create_dir_all(&root)?;
-    let tmp = root.join("preferences.json.tmp");
-    let mut f = std::fs::File::create(&tmp)?;
-    f.write_all(&serde_json::to_vec_pretty(p)?)?;
-    f.sync_all()?;
-    std::fs::rename(tmp, path())?;
+    crate::store::create_private_dir_all(&root)?;
+    // Never open an attacker-controlled, predictable temp symlink. Each write
+    // starts with a new private file; existing prefs are replaced atomically.
+    let tmp = root.join(format!("preferences.json.{}.tmp", uuid::Uuid::new_v4()));
+    let result = (|| -> anyhow::Result<()> {
+        let mut options = std::fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)] {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut file = options.open(&tmp)?;
+        file.write_all(&serde_json::to_vec_pretty(p)?)?;
+        file.sync_all()?;
+        std::fs::rename(&tmp, path())?;
+        #[cfg(unix)]
+        std::fs::File::open(&root)?.sync_all()?;
+        Ok(())
+    })();
+    if result.is_err() { let _ = std::fs::remove_file(&tmp); }
+    result?;
     apply(p.clone());
     Ok(())
 }
