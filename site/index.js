@@ -1,5 +1,5 @@
-// quiet.md 不再有官网：所有访问跳转到 GitHub 仓库。
-// 部署：在 site/ 目录下 `npx wrangler@4 deploy`。
+// Optional GoreeCloud source-preview redirect to the independent public repo.
+// This does not collect analytics, proxy downloads, or contact Quiet.md hosts.
 const TARGET = "https://github.com/GoreeCloud/rich-text-editor";
 
 export default {
