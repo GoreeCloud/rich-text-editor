@@ -63,6 +63,8 @@ checks = {
     "Linux app identity": "Name=GoreeCloud Rich Text Editor" in read("packaging/linux/com.goreecloud.richtexteditor.desktop"),
     "AppImage launcher calls renamed binary": 'exec "$appdir/usr/bin/goreecloud_rich_text_editor" "$@"' in read("packaging/linux/AppRun"),
     "AppImage launcher is smoke-tested": "AppImage launcher smoke test passed" in read("scripts/package-appimage.sh"),
+    "Linux GUI smoke validates Markdown persistence": "--markdown" in read("scripts/smoke-linux-editor.py") and "LINUX_GUI_MARKDOWN_EDIT_SAVE_REOPEN_PASS" in read("scripts/smoke-linux-editor.py") and "index.json" in read("scripts/smoke-linux-editor.py"),
+    "Linux CI exercises both document formats": "scripts/smoke-linux-editor.py target/release/goreecloud_rich_text_editor --markdown" in read(".github/workflows/ci.yml"),
     "interactive Linux GUI edit QA in CI": "scripts/smoke-linux-editor.py" in read(".github/workflows/ci.yml") and "cargo build --release --locked --features devtools" in read(".github/workflows/ci.yml"),
     "interactive QA uses isolated notes home": 'GOREECLOUD_RTE_HOME=str(work / "library")' in read("scripts/smoke-linux-editor.py") and 'FDL_SCRIPT=str(source)' in read("scripts/smoke-linux-editor.py"),
     "GUI scripted clicks use platform-independent GPUI input": '"rclick" | "click" =>' in read("src/devtools.rs"),
