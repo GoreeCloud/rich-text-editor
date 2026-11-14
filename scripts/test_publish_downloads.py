@@ -148,7 +148,9 @@ class PublishSafetyTests(unittest.TestCase):
                 cwd=ROOT, env={**self.env, "DRY_RUN": ""}, capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
             self.assertNotIn("verified: platform signature", result.stdout)
-            self.assertIn("signed", result.stderr.lower())
+            # Platform-native rejection may happen at team-ID/subject gating
+            # or later at actual signature verification. Both fail closed.
+            self.assertIn("FAIL:", result.stderr)
 
 
 if __name__ == "__main__":
