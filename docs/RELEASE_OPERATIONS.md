@@ -84,7 +84,24 @@ minisign -G -p packaging/update-key.pub -s "$HOME/.minisign/goreecloud-rich-text
 
 Keep the secret key on the signing machine, add only the public key to this repo, then validate it from another installation. Never reuse Quiet.md's signing key.
 
-The publisher `scripts/publish-downloads.sh` runs **once per native signing platform family**: macOS arm64 and Intel may be signed and published together on the same Mac, Windows must be verified on Windows, and Linux may be verified on a system with minisign. Do not pass a Windows installer and a macOS ZIP in the same command. All supplied files are checked for integrity and duplicate platforms first. Each candidate is copied to a disposable private staging directory and checked again, then minisign-signed and verified **against the pinned GoreeCloud key**. macOS and Windows must pass platform-native signing/notarization checks before any upload; Linux must pass detached minisign verification. The publisher uploads the packages and versioned signatures first, verifies delivery, and publishes the update manifests **after all packages in that invocation have passed**. This limits partial release exposure but cannot guarantee atomic deployment across separate operating systems.
+The publisher `scripts/publish-downloads.sh` runs **once per native signing platform family**: macOS arm64 and Intel may be signed and published together on the same Mac; Windows must be verified on Windows; and Linux can sign and publish both the AppImage **and** tarball in one invocation on Linux using minisign. Do not pass a Windows installer and a macOS ZIP in the same command. All supplied files are checked for integrity and duplicate platforms first. Each candidate is copied to a disposable private staging directory and checked again, then minisign-signed and verified **against the pinned GoreeCloud key**. macOS and Windows must pass platform-native signing/notarization checks before any upload; Linux must pass detached minisign verification. The publisher uploads the packages and versioned signatures first, verifies delivery, and publishes the update manifests **after all packages in that invocation have passed**. This limits partial release exposure but cannot guarantee atomic deployment across separate operating systems.
+
+Linux x64 production publication (once credentials and host are owned and ready):
+
+```bash
+GOREECLOUD_RELEASE_ENABLED=yes DRY_RUN=1 scripts/publish-downloads.sh \
+  dist/linux/goreecloud-rich-text-editor-<version>-x86_64.AppImage \
+  dist/linux/goreecloud-rich-text-editor-<version>-linux-x86_64.tar.gz
+```
+
+Review the dry-run output before removing `DRY_RUN`; this example is
+**not** an instruction to turn release publishing on prematurely. Both
+package formats are staged, minisign-verified and uploaded with their own
+versioned SHA-256 and `.minisig` files and stable latest/ downloads.
+**Only the AppImage gets `latest/update-linux-x86_64.json`.** The
+tarball is a separately signed manual download and must never overwrite the
+AppImage updater feed. Tarball extraction must also pass the archive-member
+safety audit (no traversal, links, privileged modes or oversized members).
 
 The publisher `scripts/publish-downloads.sh` is gated on `GOREECLOUD_RELEASE_ENABLED=yes`, a bucket, a host and a configured public/private minisign pair. It validates package contents and checksums before it signs or uploads, publishes versioned packages first, verifies they are served, and writes the `latest/update-<platform>.json` manifest last. Run a **DRY_RUN** and inspect the output before any actual upload. The host and bucket values above are placeholders until the owner has configured DNS, bucket permissions and the distribution service.
 

@@ -51,10 +51,10 @@ scripts/check.sh
 - [ ] Run `scripts/smoke-linux-tarball.sh dist/linux/goreecloud-rich-text-editor-*-linux-x86_64.tar.gz` and the AppImage smoke on candidate packages; these use disposable X11 libraries and do not replace physical-desktop QA.
 - [ ] Verify final AppImage/tarball behavior on a physical Linux desktop: Markdown import/edit, native rich text, Unicode paths, printing/export, fonts, persistence, and interrupted-write recovery. Windows/macOS GUI acceptance is deferred.
 - [ ] Run `scripts/check.sh` and verify the current GitHub Actions CI jobs are green on the release commit.
-- [ ] Create an independent GoreeCloud minisign key and verify detached signatures on Linux packages. Windows Authenticode and Apple notarization are not Linux release gates.
+- [ ] Create an independent **production** GoreeCloud minisign key and verify detached signatures on Linux packages. CI only uses disposable test keys; Windows Authenticode and Apple notarization are not Linux release gates.
 - [ ] For signed Linux publishing, configure a GoreeCloud-owned HTTPS host/bucket. Keep `src/update.rs` disabled until independent Linux update and rollback tests pass.
 - [ ] Test manual Linux upgrades, failure/recovery and (later) signed updates on disposable Linux systems.
-- [ ] Publish only verified Linux packages and SHA-256 sidecars with detached signatures once the Linux release gate passes; keep unsigned CI artifacts clearly labeled.
+- [ ] Publish both verified Linux packages and their SHA-256 sidecars and detached minisign signatures once the Linux release gate passes; publish an update feed **only for AppImage** and keep unsigned CI artifacts clearly labeled.
 - [ ] Validate app name, documentation, translated onboarding guides, screenshots, accessibility and any remaining upstream terminology.
 
 The app's core note engine supports both Markdown files and Feishu/Lark DocxXML documents. This project should not claim that every note is stored as Markdown.

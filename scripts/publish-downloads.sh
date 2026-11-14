@@ -1,11 +1,14 @@
 #!/bin/bash
 # Upload release packages to the separately configured GoreeCloud R2 bucket: an immutable copy under v<version>/ and the
 # fixed latest/ link the site and README point at. Run on the native signing machine, one
-# platform family at a time (two Mac architectures together are supported):
+# platform family at a time (two Mac architectures or both Linux x64 formats):
+#   scripts/publish-downloads.sh dist/linux/goreecloud-rich-text-editor-0.1.10-x86_64.AppImage dist/linux/goreecloud-rich-text-editor-0.1.10-linux-x86_64.tar.gz
 #   scripts/publish-downloads.sh dist-release.XXXX/goreecloud-rich-text-editor-0.1.2-macos-arm64.zip
 #   scripts/publish-downloads.sh dist/windows/signed/goreecloud-rich-text-editor-0.1.2-windows-x64-setup.exe
 # Each package is signed with minisign (MINISIGN_KEY, default ~/.minisign/goreecloud-rich-text-editor.key) and checked against
-# packaging/update-key.pub; latest/update-<platform>.json, written last, is what the app's updater reads.
+# packaging/update-key.pub. Only installable updater targets receive a
+# latest/update-<platform>.json manifest; Linux tarballs are separately signed
+# manual-download packages, NOT automatic AppImage update targets.
 # The key's password comes from the login keychain when stored there once, else minisign asks:
 #   security add-generic-password -U -s goreecloud-rich-text-editor-minisign -a "$USER" -w
 # DRY_RUN=1 prints the uploads without signing or sending them. WRANGLER overrides the wrangler command.
@@ -59,6 +62,7 @@ for file in "$@"; do
     goreecloud-rich-text-editor-*-macos-x86_64.zip) platform=macos-x86_64; latest=goreecloud-rich-text-editor-macos-x86_64.zip; type=application/zip ;;
     goreecloud-rich-text-editor-*-windows-x64-setup.exe) platform=windows-x64; latest=goreecloud-rich-text-editor-windows-x64-setup.exe; type=application/vnd.microsoft.portable-executable ;;
     goreecloud-rich-text-editor-*-x86_64.AppImage) platform=linux-x86_64; latest=goreecloud-rich-text-editor-x86_64.AppImage; type=application/octet-stream ;;
+    goreecloud-rich-text-editor-*-linux-x86_64.tar.gz) platform=linux-x86_64-tar; latest=goreecloud-rich-text-editor-linux-x86_64.tar.gz; type=application/gzip ;;
     *) echo "Unrecognised package name: $name" >&2; exit 1 ;;
   esac
   case "$platform" in
@@ -97,6 +101,7 @@ for original in "$@"; do
     *-macos-x86_64.zip) platform=macos-x86_64 ;;
     *-windows-x64-setup.exe) platform=windows-x64 ;;
     *-x86_64.AppImage) platform=linux-x86_64 ;;
+    *-linux-x86_64.tar.gz) platform=linux-x86_64-tar ;;
     *) echo "Unexpected package during signing: $name" >&2; exit 1 ;;
   esac
   file="$work/signed/$name"
@@ -116,7 +121,7 @@ for original in "$@"; do
   # detached minisig was created in $work and is checked against the pinned
   # GoreeCloud public key. No unsigned validation package may be published.
   if [ -z "${DRY_RUN:-}" ]; then
-    if [ "$platform" = linux-x86_64 ]; then
+    if [[ "$platform" == linux-x86_64* ]]; then
       python3 -B scripts/audit-release-artifacts.py --distribution --signature-file "$sig" "$file"
     else
       python3 -B scripts/audit-release-artifacts.py --distribution "$file"
@@ -134,6 +139,7 @@ for original in "$@"; do
     goreecloud-rich-text-editor-*-macos-x86_64.zip) platform=macos-x86_64; latest=goreecloud-rich-text-editor-macos-x86_64.zip; type=application/zip ;;
     goreecloud-rich-text-editor-*-windows-x64-setup.exe) platform=windows-x64; latest=goreecloud-rich-text-editor-windows-x64-setup.exe; type=application/vnd.microsoft.portable-executable ;;
     goreecloud-rich-text-editor-*-x86_64.AppImage) platform=linux-x86_64; latest=goreecloud-rich-text-editor-x86_64.AppImage; type=application/octet-stream ;;
+    goreecloud-rich-text-editor-*-linux-x86_64.tar.gz) platform=linux-x86_64-tar; latest=goreecloud-rich-text-editor-linux-x86_64.tar.gz; type=application/gzip ;;
     *) echo "Unrecognised package name: $name" >&2; exit 1 ;;
   esac
   version=${name#goreecloud-rich-text-editor-}; version=${version%%-*}
@@ -152,6 +158,18 @@ import os, sys
 print(os.path.getsize(sys.argv[1]))
 PYTHON
 )
+  if [ "$platform" = linux-x86_64-tar ]; then
+    # Tarball is a signed manual download, never an automatic AppImage update.
+    if [ -z "${DRY_RUN:-}" ]; then
+      headers=$(curl -q -fsSI --proto '=https' --proto-redir '=https' --connect-timeout 10 --max-time 25 --max-redirs 3 "$host/latest/$latest?check=$RANDOM" | tr -d '\r')
+      grep -qi "^content-length: $size$" <<<"$headers" && grep -qi "filename=\"$name\"" <<<"$headers" ||
+        { echo "latest/$latest did not update as expected" >&2; exit 1; }
+      curl -q -fsSI --proto '=https' --proto-redir '=https' --connect-timeout 10 --max-time 25 --max-redirs 3 "$host/v$version/$name" | tr -d '\r' | grep -qi "^content-length: $size$" ||
+        { echo "v$version/$name is not served" >&2; exit 1; }
+    fi
+    echo "$host/latest/$latest -> manual Linux tarball $name (signing required outside DRY_RUN)"
+    continue
+  fi
   manifest="$work/update-$platform.json"
   python3 - "$version" "$host/v$version/$name" "$size" "$sig" > "$manifest" <<'PYTHON'
 import json, sys

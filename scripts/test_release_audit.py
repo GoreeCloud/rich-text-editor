@@ -61,6 +61,7 @@ class ReleaseAuditTests(unittest.TestCase):
                 content=b"content"
                 item=tarfile.TarInfo(name.removesuffix(".tar.gz") + "/" + rel)
                 item.size=len(content)
+                item.mode=0o755 if rel.startswith("bin/") else 0o644
                 tf.addfile(item,io.BytesIO(content))
         return self.sign_checksum(name, data.getvalue())
 
@@ -74,6 +75,45 @@ class ReleaseAuditTests(unittest.TestCase):
 
     def appimage(self):
         return self.sign_checksum(f"goreecloud-rich-text-editor-{V}-x86_64.AppImage", b"\x7fELF"+"-mock".encode())
+
+    def append_linux_member(self, name, kind="file"):
+        archive = self.linux_tar()
+        with tarfile.open(archive, "r:gz") as source:
+            items = [(entry.name, entry.mode, source.extractfile(entry).read()) for entry in source.getmembers()]
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w:gz") as rebuilt:
+            for entry_name, mode, blob in items:
+                item = tarfile.TarInfo(entry_name)
+                item.size = len(blob)
+                item.mode = mode
+                rebuilt.addfile(item, io.BytesIO(blob))
+            item = tarfile.TarInfo(name)
+            if kind == "symlink":
+                item.type = tarfile.SYMTYPE
+                item.linkname = "../../outside-library"
+                rebuilt.addfile(item)
+            else:
+                blob = b"untrusted extra payload"
+                item.size = len(blob)
+                rebuilt.addfile(item, io.BytesIO(blob))
+        return self.sign_checksum(archive.name, buf.getvalue())
+
+    def test_linux_tarball_path_escape_is_rejected_even_with_fresh_checksum(self):
+        path = self.append_linux_member("../../outside-library")
+        with self.assertRaisesRegex(ValueError, "unsafe or unrelated Linux archive path"):
+            audit.audit(path, False)
+
+    def test_linux_tarball_link_member_is_rejected(self):
+        name = f"goreecloud-rich-text-editor-{V}-linux-x86_64/share/applications/link"
+        path = self.append_linux_member(name, kind="symlink")
+        with self.assertRaisesRegex(ValueError, "links or special members"):
+            audit.audit(path, False)
+
+    def test_linux_tarball_duplicate_member_is_rejected(self):
+        name = f"goreecloud-rich-text-editor-{V}-linux-x86_64/LICENSE"
+        path = self.append_linux_member(name)
+        with self.assertRaisesRegex(ValueError, "duplicate Linux archive member"):
+            audit.audit(path, False)
 
     def test_candidate_checks_cover_all_platforms(self):
         for path in [self.macos("arm64"), self.macos("x86_64"), self.windows(), self.linux_tar(), self.appimage()]:
