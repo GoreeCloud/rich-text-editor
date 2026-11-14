@@ -711,14 +711,29 @@ pub fn stamp() -> Vec<(PathBuf, std::time::SystemTime, u64)> {
 
 /// The stylesheet of theme `id` as a file the user can edit: their own file,
 /// or for a built-in theme a full copy of it (written now) that replaces it.
+/// Write a newly user-owned theme without a truncate/race window or a
+/// desktop umask-dependent world-readable mode.
+fn write_new_private_theme(path: &std::path::Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)] {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut output = options.open(path)?;
+    output.write_all(bytes)?;
+    output.sync_all()
+}
+
 pub fn editable_file(id: &str) -> std::io::Result<PathBuf> {
     let list = THEMES.read().unwrap();
     let t = list.iter().find(|t| t.id == id).ok_or_else(|| std::io::Error::other("no such theme"))?;
     if let Some(p) = &t.path { return Ok(p.clone()) }
     let d = dir();
-    std::fs::create_dir_all(&d)?;
+    crate::store::create_private_dir_all(&d)?;
     let p = d.join(format!("{id}.css"));
-    std::fs::write(&p, t.bundled.unwrap_or_default())?;
+    write_new_private_theme(&p, t.bundled.unwrap_or_default().as_bytes())?;
     Ok(p)
 }
 
@@ -728,7 +743,7 @@ pub fn duplicate(id: &str) -> std::io::Result<(String, PathBuf)> {
     let t = list.iter().find(|t| t.id == id).ok_or_else(|| std::io::Error::other("no such theme"))?;
     let src = match &t.path { Some(p) => std::fs::read_to_string(p)?, None => t.bundled.unwrap_or_default().to_string() };
     let d = dir();
-    std::fs::create_dir_all(&d)?;
+    crate::store::create_private_dir_all(&d)?;
     let (new_id, p) = (1..).map(|n| { let s = if n == 1 { format!("{id}-copy") } else { format!("{id}-copy-{n}") }; let p = d.join(format!("{s}.css")); (s, p) })
         .find(|(s, p)| !p.exists() && !BUNDLED.iter().any(|(b, _)| b == s)).unwrap();
     let name = format!("{} {}", t.name, crate::settings::tr("副本", "copy"));
@@ -740,7 +755,7 @@ pub fn duplicate(id: &str) -> std::io::Result<(String, PathBuf)> {
         out.push_str(line);
         out.push('\n');
     }
-    std::fs::write(&p, out)?;
+    write_new_private_theme(&p, out.as_bytes())?;
     Ok((new_id, p))
 }
 

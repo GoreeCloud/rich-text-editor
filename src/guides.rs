@@ -1,6 +1,7 @@
 //! Bundled first-launch library; existing libraries are never reseeded.
 use std::path::Path;
 use std::fs;
+use std::io::{self, Write};
 
 include!(concat!(env!("OUT_DIR"), "/guides.rs"));
 
@@ -38,28 +39,56 @@ pub fn for_windows(xml: &str) -> String {
     crate::shortcuts::windows_keys(&text)
 }
 
+/// Stage each bundled guide with private permissions and atomically publish it.
+/// Resuming an interrupted first launch replaces only the preseeded pending
+/// file; real user documents and existing libraries are never touched.
+fn stage_private_file(pending: &Path, path: &Path, bytes: &[u8]) -> io::Result<()> {
+    let tmp = pending.join(format!(".seed-{}.tmp", uuid::Uuid::new_v4()));
+    let result = (|| -> io::Result<()> {
+        let mut options = fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)] {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut output = options.open(&tmp)?;
+        output.write_all(bytes)?;
+        output.sync_all()?;
+        fs::rename(&tmp, path)?;
+        Ok(())
+    })();
+    if result.is_err() { let _ = fs::remove_file(&tmp); }
+    result
+}
+
 pub fn initialize(root: &Path) -> anyhow::Result<()> {
-    fs::create_dir_all(root)?;
+    crate::store::create_private_dir_all(root)?;
     if seeded(root)? { return Ok(()); }
     // Copies of the app may share a library: two started together on a new
     // one seed it in turn. Released when `lock` drops.
-    let lock = fs::OpenOptions::new().create(true).truncate(false).write(true).open(root.join(".lock"))?;
+    let mut lock_options = fs::OpenOptions::new();
+    lock_options.create(true).truncate(false).write(true);
+    #[cfg(unix)] {
+        use std::os::unix::fs::OpenOptionsExt;
+        lock_options.mode(0o600);
+    }
+    let lock = lock_options.open(root.join(".lock"))?;
     lock.lock()?;
     if seeded(root)? { return Ok(()); }
     let pending = root.join(".guides-pending");
-    fs::create_dir_all(&pending)?;
+    crate::store::create_private_dir_all(&pending)?;
     // Stage complete files before publishing. The pending directory lets a
     // failed first launch resume without mistaking it for an existing library.
     for (name, bytes) in FILES {
         let path = pending.join(name);
-        fs::create_dir_all(path.parent().unwrap())?;
+        crate::store::create_private_dir_all(path.parent().unwrap())?;
         let guide = name.starts_with("docs/") && name.ends_with(".xml");
         match std::str::from_utf8(bytes) {
             Ok(xml) if guide => {
                 let adapted = if cfg!(target_os = "windows") { for_windows(xml) } else { xml.to_owned() };
-                fs::write(path, name_new_guide(&adapted))?;
+                stage_private_file(&pending, &path, name_new_guide(&adapted).as_bytes())?;
             }
-            _ => fs::write(path, bytes)?,
+            _ => stage_private_file(&pending, &path, bytes)?,
         }
     }
     for name in ["assets", "docs", "index.json", "format.json"] {
@@ -99,6 +128,33 @@ mod tests {
         assert!(all.contains("<code>Ctrl+B</code>") && all.contains("<code>Ctrl+Alt+1</code>") && all.contains("<code>Ctrl+Shift+C</code>"));
         let mac = |l: &&str| l.contains(['⌘', '⌥', '⇧', '⌃']);
         assert!(!all.lines().any(|l| mac(&l)), "{}", all.lines().find(mac).unwrap_or_default());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn first_launch_files_and_directories_are_private() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = std::env::temp_dir().join(format!(
+            "goreecloud-guides-private-{}", uuid::Uuid::new_v4()));
+        super::initialize(&root).unwrap();
+        let mut paths = vec![root.clone()];
+        let mut files = 0;
+        let mut dirs = 0;
+        while let Some(path) = paths.pop() {
+            let metadata = std::fs::symlink_metadata(&path).unwrap();
+            assert!(!metadata.file_type().is_symlink());
+            let mode = metadata.permissions().mode() & 0o777;
+            if metadata.is_dir() {
+                assert_eq!(mode, 0o700, "directory {path:?} must be private");
+                dirs += 1;
+                paths.extend(std::fs::read_dir(&path).unwrap().map(|e| e.unwrap().path()));
+            } else {
+                assert_eq!(mode, 0o600, "file {path:?} must be private");
+                files += 1;
+            }
+        }
+        assert!(files >= 10 && dirs >= 3);
+        let _ = std::fs::remove_dir_all(root);
     }
 
     /// The new product name is seeded only for fresh libraries.
