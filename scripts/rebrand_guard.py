@@ -29,6 +29,7 @@ checks = {
     "private new-library web image default": "remote_images: false" in production_rust("src/settings.rs"),
     "private new-library updater default": "auto_update: false" in production_rust("src/settings.rs"),
     "web image redirects protocol restricted": '"--proto-redir", "=http,https"' in production_rust("src/editor/image.rs"),
+    "web image curlrc disabled": 'cmd.args(["-q", "--fail"' in production_rust("src/editor/image.rs"),
     "web image downloads capped": '"--max-filesize", "20971520"' in production_rust("src/editor/image.rs"),
     "release builds ignore update URL override": 'if !(cfg!(test) || cfg!(debug_assertions)) { return None; }' in production_rust("src/update.rs"),
     "development update feeds are loopback-only": 'url.strip_prefix("http://127.0.0.1:")' in production_rust("src/update.rs"),

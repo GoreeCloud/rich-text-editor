@@ -76,3 +76,5 @@ redirect count, restricts feed manifests to 64 KiB, and caps package download
 transfer to the validated manifest size. A detached minisign signature and
 matching trusted comment remain mandatory for the actual payload.
 These limits are exercised in Rust tests without contacting a network.
+
+Optional remote-image fetching also uses `curl -q` as its first argument so existing user `.curlrc` settings cannot silently override TLS verification, network protocols, or transfer limits. This is checked by the web-image Rust test and rebrand guard.

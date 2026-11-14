@@ -2061,7 +2061,9 @@ fn web_image_url(url: &str) -> bool {
 
 fn image_download_command(url: &str, dest: &Path) -> std::process::Command {
     let mut cmd = std::process::Command::new("curl");
-    cmd.args(["--fail", "--silent", "--show-error", "--location",
+    // The first argument disables ~/.curlrc so user-level curl settings cannot
+    // disable TLS validation or alter the editor's bounded download behavior.
+    cmd.args(["-q", "--fail", "--silent", "--show-error", "--location",
         "--max-time", "60", "--connect-timeout", "10", "--max-redirs", "5",
         "--proto", "=http,https", "--proto-redir", "=http,https",
         "--max-filesize", "20971520", "--output"]);
@@ -2260,6 +2262,7 @@ mod tests {
         }
         let cmd = image_download_command("https://example.com/image.png", dest);
         let args: Vec<_> = cmd.get_args().map(|s| s.to_string_lossy().into_owned()).collect();
+        assert_eq!(args.first().map(String::as_str), Some("-q"));
         for (key, value) in [
             ("--proto", "=http,https"),
             ("--proto-redir", "=http,https"),
