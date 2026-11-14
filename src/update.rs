@@ -170,7 +170,22 @@ fn package_name(version: &str, platform: &str) -> String {
     else { format!("goreecloud-rich-text-editor-{version}-{platform}.zip") }
 }
 
-fn override_url() -> Option<String> { std::env::var("GOREECLOUD_RTE_UPDATE_URL").ok().filter(|u| !u.is_empty()) }
+/// Development-only test endpoint. Release builds never accept a user-supplied
+/// update URL, even if a process environment variable happens to be set.
+/// The dev endpoint must be loopback, so debugging cannot fetch an unrelated
+/// host or leak release metadata.
+fn loopback_override(raw: &str) -> Option<String> {
+    let url = raw.trim_end_matches('/');
+    let port = url.strip_prefix("http://127.0.0.1:")
+        .or_else(|| url.strip_prefix("http://localhost:"))?;
+    let parsed = port.parse::<u16>().ok()?;
+    (parsed > 0).then(|| url.to_string())
+}
+
+fn override_url() -> Option<String> {
+    if !(cfg!(test) || cfg!(debug_assertions)) { return None; }
+    loopback_override(&std::env::var("GOREECLOUD_RTE_UPDATE_URL").ok()?)
+}
 
 fn public_key() -> Option<minisign_verify::PublicKey> {
     minisign_verify::PublicKey::decode(KEY.trim()).ok().or_else(|| minisign_verify::PublicKey::from_base64(KEY.trim()).ok())
@@ -206,19 +221,25 @@ fn fetch_manifest() -> Result<Option<Manifest>, Error> {
     if !supported() { return Err(Error::Unsupported) }
     let platform = platform().unwrap();
     let url = format!("{}/update-{platform}.json", override_url().as_deref().unwrap_or(BASE).trim_end_matches('/'));
-    let body = curl(&["--max-time", "20", &url]).map_err(Error::Failed)?;
+    // A feed manifest is metadata, never a multi-megabyte download.
+    let body = curl(&["--max-time", "20", "--max-filesize", "65536", "--", &url]).map_err(Error::Failed)?;
     let m: Manifest = serde_json::from_slice(&body).map_err(|e| Error::Failed(format!("{}: {e}", crate::settings::tr("更新信息无法识别", "Unrecognised update information"))))?;
-    validate(&m, platform, override_url().is_some()).map_err(Error::Failed)?;
+    let package_origin = override_url().map_or_else(|| PACKAGES.to_string(), |host| format!("{host}/"));
+    validate(&m, platform, &package_origin).map_err(Error::Failed)?;
     Ok(newer(&m.version, env!("CARGO_PKG_VERSION")).then_some(m))
 }
 
 /// The manifest names this platform's package for its version, over HTTPS,
 /// with a signature for that very file.
-fn validate(m: &Manifest, platform: &str, testing: bool) -> Result<(), String> {
+fn validate(m: &Manifest, platform: &str, package_origin: &str) -> Result<(), String> {
     let name = package_name(&m.version, platform);
     let bad = |what: &str| Err(format!("{}: {what}", crate::settings::tr("更新信息无效", "Invalid update information")));
-    if m.version.split('.').any(|p| p.parse::<u64>().is_err()) { return bad("version") }
-    if !(m.url.starts_with(PACKAGES) || testing) || !m.url.ends_with(&format!("/{name}")) { return bad("url") }
+    if m.version.split('.').count() != 3 || m.version.split('.').any(|p| p.is_empty() || p.parse::<u64>().is_err()) {
+        return bad("version")
+    }
+    // Exact versioned location: no arbitrary paths, query suffixes or hosts.
+    // The base is compiled in for production, or localhost-only for devtests.
+    if m.url != format!("{package_origin}v{}/{name}", m.version) { return bad("url") }
     if m.size == 0 || m.size > 1 << 30 { return bad("size") }
     match minisign_verify::Signature::decode(&m.signature) { Ok(sig) if sig.trusted_comment() == name => Ok(()), _ => bad("signature") }
 }
@@ -250,7 +271,8 @@ fn fetch_package(m: &Manifest) -> Result<PathBuf, String> {
     // curl gets no path: a Windows curl.exe reads its arguments in the ANSI
     // code page, which cannot spell every user folder name (中文 included).
     let out = std::fs::File::create(&part).map_err(|e| e.to_string())?;
-    curl_to(&["--max-time", "900", &m.url], Stdio::from(out))?;
+    let max_size = m.size.to_string();
+    curl_to(&["--max-time", "900", "--max-filesize", &max_size, "--", &m.url], Stdio::from(out))?;
     let bytes = std::fs::read(&part).map_err(|e| e.to_string())?;
     let failed = |what: &str| format!("{}: {what}", crate::settings::tr("更新包校验失败", "The update package failed verification"));
     if bytes.len() as u64 != m.size { return Err(failed("size")) }
@@ -277,11 +299,21 @@ fn fetch_package(m: &Manifest) -> Result<PathBuf, String> {
 fn curl(args: &[&str]) -> Result<Vec<u8>, String> { curl_to(args, Stdio::piped()) }
 
 /// `stdout`: piped (returned) or a file to download into.
+fn curl_command(args: &[&str], loopback: bool) -> Command {
+    // Disable ~/.curlrc (first argument) so users' curl configuration cannot
+    // weaken TLS settings or insert extra download options. HTTPS only unless
+    // explicitly using a loopback development feed.
+    let proto = if loopback { "=https,http" } else { "=https" };
+    // Development feeds may use HTTP on localhost but cannot redirect off it.
+    let max_redirs = if loopback { "0" } else { "5" };
+    let mut cmd = command("curl");
+    cmd.args(["-q", "-fsSL", "--proto", proto, "--proto-redir", proto,
+        "--max-redirs", max_redirs, "--connect-timeout", "15"]).args(args);
+    cmd
+}
+
 fn curl_to(args: &[&str], stdout: Stdio) -> Result<Vec<u8>, String> {
-    // HTTPS only, redirects too; a test server (GOREECLOUD_RTE_UPDATE_URL) may be plain http.
-    let proto = if override_url().is_some() { "=https,http" } else { "=https" };
-    let out = command("curl").args(["-fsSL", "--proto", proto, "--proto-redir", proto, "--connect-timeout", "15"]).args(args)
-        .stdin(Stdio::null()).stdout(stdout).stderr(Stdio::piped()).output()
+    let out = curl_command(args, override_url().is_some()).stdin(Stdio::null()).stdout(stdout).stderr(Stdio::piped()).output()
         .map_err(|e| format!("curl: {e}"))?;
     if out.status.success() { return Ok(out.stdout) }
     let msg = String::from_utf8_lossy(&out.stderr).trim().trim_start_matches("curl: ").to_string();
@@ -441,7 +473,41 @@ fn start_installer(_: &Path) -> Result<(), String> { Err("unsupported".into()) }
 
 #[cfg(test)]
 mod tests {
-    use super::{newer, signed, validate, package_name, public_key, Manifest, BASE, PACKAGES, UPDATES_CONFIGURED};
+    use super::{curl_command, loopback_override, newer, signed, validate, package_name, public_key, Manifest, BASE, PACKAGES, UPDATES_CONFIGURED};
+
+    #[test]
+    fn development_override_rejects_remote_and_nonloopback_hosts() {
+        assert_eq!(loopback_override("http://127.0.0.1:8255/"), Some("http://127.0.0.1:8255".into()));
+        assert_eq!(loopback_override("http://localhost:8080"), Some("http://localhost:8080".into()));
+        for url in [
+            "https://download.quiet.md", "https://evil.example",
+            "http://127.0.0.2:8255", "http://localhost.evil.example:8255",
+            "http://127.0.0.1:8255/a", "http://127.0.0.1:8255?token=x",
+            "http://localhost:0", "http://localhost:65536",
+            "file:///etc/passwd", "http://[::1]:8255",
+        ] {
+            assert!(loopback_override(url).is_none(), "unexpected permitted origin: {url}");
+        }
+    }
+
+    #[test]
+    fn update_curl_disables_user_config_and_caps_network_redirects() {
+        let cmd = curl_command(&["--max-time", "20", "--max-filesize", "65536",
+            "--", "https://updates.invalid/latest/update-linux-x86_64.json"], false);
+        let args: Vec<String> = cmd.get_args().map(|s| s.to_string_lossy().into_owned()).collect();
+        assert_eq!(args.first().map(String::as_str), Some("-q"));
+        for (key, value) in [
+            ("--max-redirs", "5"), ("--connect-timeout", "15"),
+            ("--max-filesize", "65536"), ("--max-time", "20"),
+        ] {
+            assert!(args.windows(2).any(|pair| pair[0] == key && pair[1] == value), "{key}: {args:?}");
+        }
+        assert!(args.windows(2).any(|pair| pair[0] == "--proto-redir" && pair[1].starts_with("=https")));
+        let localhost = curl_command(&["--", "http://127.0.0.1:8255/update-linux-x86_64.json"], true);
+        let dev: Vec<String> = localhost.get_args().map(|s| s.to_string_lossy().into_owned()).collect();
+        assert!(dev.windows(2).any(|pair| pair[0] == "--max-redirs" && pair[1] == "0"));
+        assert!(dev.windows(2).any(|pair| pair[0] == "--proto-redir" && pair[1] == "=https,http"));
+    }
 
     #[test]
     fn import_cannot_use_upstream_update_channel() {
@@ -499,31 +565,47 @@ FuE4L1zQnqL1nA/5xffpEtZyK2ca882Q1joA5X11poZ1xezdAlEMfn/36MJc5C60clQFec4vQf66MoxP
     #[test]
     fn manifests_must_name_the_signed_package() {
         let ok = manifest("0.2.0", "https://updates.invalid/v0.2.0/goreecloud-rich-text-editor-0.2.0-macos-arm64.zip", "goreecloud-rich-text-editor-0.2.0-macos-arm64.zip");
-        assert_eq!(validate(&ok, "macos-arm64", false), Ok(()));
-        assert!(validate(&ok, "macos-x86_64", false).is_err());
+        assert_eq!(validate(&ok, "macos-arm64", PACKAGES), Ok(()));
+        assert!(validate(&ok, "macos-x86_64", PACKAGES).is_err());
         let intel = manifest("0.2.0", "https://updates.invalid/v0.2.0/goreecloud-rich-text-editor-0.2.0-macos-x86_64.zip", "goreecloud-rich-text-editor-0.2.0-macos-x86_64.zip");
-        assert_eq!(validate(&intel, "macos-x86_64", false), Ok(()));
-        assert!(validate(&intel, "macos-arm64", false).is_err());
+        assert_eq!(validate(&intel, "macos-x86_64", PACKAGES), Ok(()));
+        assert!(validate(&intel, "macos-arm64", PACKAGES).is_err());
         // An older package's signature under a newer version number.
         let replay = manifest("0.9.0", "https://updates.invalid/v0.2.0/goreecloud-rich-text-editor-0.2.0-macos-arm64.zip", "goreecloud-rich-text-editor-0.2.0-macos-arm64.zip");
-        assert!(validate(&replay, "macos-arm64", false).is_err());
+        assert!(validate(&replay, "macos-arm64", PACKAGES).is_err());
         let renamed = manifest("0.9.0", "https://updates.invalid/v0.9.0/goreecloud-rich-text-editor-0.9.0-macos-arm64.zip", "goreecloud-rich-text-editor-0.2.0-macos-arm64.zip");
-        assert!(validate(&renamed, "macos-arm64", false).is_err());
+        assert!(validate(&renamed, "macos-arm64", PACKAGES).is_err());
         let http = manifest("0.2.0", "http://download.quiet.md/v0.2.0/goreecloud-rich-text-editor-0.2.0-macos-arm64.zip", "goreecloud-rich-text-editor-0.2.0-macos-arm64.zip");
-        assert!(validate(&http, "macos-arm64", false).is_err());
-        assert_eq!(validate(&http, "macos-arm64", true), Ok(()));
+        assert!(validate(&http, "macos-arm64", PACKAGES).is_err());
+        assert!(validate(&http, "macos-arm64", "http://127.0.0.1:8255/").is_err());
+        let local = manifest("0.2.0", "http://127.0.0.1:8255/v0.2.0/goreecloud-rich-text-editor-0.2.0-macos-arm64.zip", "goreecloud-rich-text-editor-0.2.0-macos-arm64.zip");
+        assert_eq!(validate(&local, "macos-arm64", "http://127.0.0.1:8255/"), Ok(()));
+        assert!(validate(&local, "macos-arm64", PACKAGES).is_err());
+        // Same trusted host, but the package must be under exactly its version directory.
+        for invalid in [
+            "https://updates.invalid/latest/goreecloud-rich-text-editor-0.2.0-macos-arm64.zip",
+            "https://updates.invalid/v0.1.0/goreecloud-rich-text-editor-0.2.0-macos-arm64.zip",
+            "https://updates.invalid/v0.2.0/goreecloud-rich-text-editor-0.2.0-macos-arm64.zip?query=1",
+            "https://updates.invalid/v0.2.0/../goreecloud-rich-text-editor-0.2.0-macos-arm64.zip",
+        ] {
+            assert!(validate(&manifest("0.2.0", invalid, "goreecloud-rich-text-editor-0.2.0-macos-arm64.zip"), "macos-arm64", PACKAGES).is_err(), "{invalid}");
+        }
+        // A feed has exactly three numeric version components.
+        for version in ["0.2", "0.2.0.1", "0.2.x", "0/2/0", ""] {
+            assert!(validate(&manifest(version, "https://updates.invalid/ignored", "goreecloud-rich-text-editor-0.2.0-macos-arm64.zip"), "macos-arm64", PACKAGES).is_err());
+        }
         // A genuine signature does not make another host acceptable.
         for url in ["https://evil.example/v0.2.0/goreecloud-rich-text-editor-0.2.0-macos-arm64.zip", "https://download.quiet.md.evil.example/goreecloud-rich-text-editor-0.2.0-macos-arm64.zip", "https://evil.example/download.quiet.md/goreecloud-rich-text-editor-0.2.0-macos-arm64.zip"] {
-            assert!(validate(&manifest("0.2.0", url, "goreecloud-rich-text-editor-0.2.0-macos-arm64.zip"), "macos-arm64", false).is_err(), "{url}");
+            assert!(validate(&manifest("0.2.0", url, "goreecloud-rich-text-editor-0.2.0-macos-arm64.zip"), "macos-arm64", PACKAGES).is_err(), "{url}");
         }
         let windows = manifest("0.2.0", "https://updates.invalid/v0.2.0/goreecloud-rich-text-editor-0.2.0-windows-x64-setup.exe", "goreecloud-rich-text-editor-0.2.0-windows-x64-setup.exe");
-        assert_eq!(validate(&windows, "windows-x64", false), Ok(()));
-        assert!(validate(&windows, "macos-arm64", false).is_err());
+        assert_eq!(validate(&windows, "windows-x64", PACKAGES), Ok(()));
+        assert!(validate(&windows, "macos-arm64", PACKAGES).is_err());
         let linux = manifest("0.2.0", "https://updates.invalid/v0.2.0/goreecloud-rich-text-editor-0.2.0-x86_64.AppImage", "goreecloud-rich-text-editor-0.2.0-x86_64.AppImage");
-        assert_eq!(validate(&linux, "linux-x86_64", false), Ok(()));
-        assert!(validate(&linux, "windows-x64", false).is_err());
+        assert_eq!(validate(&linux, "linux-x86_64", PACKAGES), Ok(()));
+        assert!(validate(&linux, "windows-x64", PACKAGES).is_err());
         let wrong_linux = manifest("0.2.0", "https://updates.invalid/v0.2.0/goreecloud-rich-text-editor-0.2.0-linux-x86_64.zip", "goreecloud-rich-text-editor-0.2.0-linux-x86_64.zip");
-        assert!(validate(&wrong_linux, "linux-x86_64", false).is_err());
+        assert!(validate(&wrong_linux, "linux-x86_64", PACKAGES).is_err());
     }
 }
 
