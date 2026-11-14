@@ -26,9 +26,9 @@ BEGIN
   BEGIN
     BLOCK "040904B0"
     BEGIN
-      VALUE "FileDescription", "GoreeCloud Rich Text Editor\0"
+      VALUE "FileDescription", "GoreeCloud Notes\0"
       VALUE "FileVersion", "{version}\0"
-      VALUE "ProductName", "GoreeCloud Rich Text Editor\0"
+      VALUE "ProductName", "GoreeCloud Notes\0"
       VALUE "ProductVersion", "{version}\0"
       VALUE "OriginalFilename", "goreecloud_rich_text_editor.exe\0"
     END

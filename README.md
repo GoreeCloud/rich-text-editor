@@ -46,6 +46,6 @@ See [Release readiness](docs/RELEASE_READINESS.md) and the [release operator run
 - Import type: **Rebranded Import**
 - Product name: **GoreeCloud Notes**
 
-The upstream project's MIT copyright and permission notice are preserved in [LICENSE](LICENSE). Third-party notices are preserved in [THIRD_PARTY.md](THIRD_PARTY.md). The original separately licensed Nucleo app-shell icons were replaced with ISC-licensed Lucide icons, and the app icon was replaced with an original GoreeCloud monogram. Read [UPSTREAM.md](UPSTREAM.md) for details.
+The upstream project's MIT copyright and permission notice are preserved in [LICENSE](LICENSE). Third-party notices are preserved in [THIRD_PARTY.md](THIRD_PARTY.md). The original separately licensed Nucleo app-shell icons were replaced with ISC-licensed Lucide icons, and the Notes app icon now uses exact hash-pinned original source artwork from [GoreeCloud/brand-assets](https://github.com/GoreeCloud/brand-assets/tree/main/products/notes). Read [UPSTREAM.md](UPSTREAM.md) for details.
 
 This project is an independent rebranded derivative, not an official Quiet.md release or affiliation.

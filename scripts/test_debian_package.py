@@ -34,7 +34,10 @@ with tempfile.TemporaryDirectory(prefix="goreecloud-deb-audit-") as tmp:
     entry = target / "usr/share/applications/com.goreecloud.richtexteditor.desktop"
     assert "Exec=goreecloud_rich_text_editor %F" in entry.read_text()
     assert "Categories=Office;TextEditor;" in entry.read_text()
-    assert (target / "usr/share/icons/hicolor/512x512/apps/com.goreecloud.richtexteditor.png").is_file()
+    icon = target / "usr/share/icons/hicolor/512x512/apps/com.goreecloud.richtexteditor.png"
+    assert icon.is_file()
+    assert icon.read_bytes() == (root / "assets/branding/app-icon.png").read_bytes(), (
+        "Debian icon does not match the central official Notes icon")
     for notice in ("LICENSE", "THIRD_PARTY.md"):
         assert (target / "usr/share/doc/goreecloud-rich-text-editor" / notice).is_file()
     assert not (target / "DEBIAN").exists(), "Maintainer scripts or control files must not ship as payload"
