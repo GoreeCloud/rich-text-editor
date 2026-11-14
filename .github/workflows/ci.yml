@@ -273,6 +273,10 @@ jobs:
         if: steps.filter.outputs.skip != 'true'
         run: scripts/smoke-linux-tarball.sh dist/linux/goreecloud-rich-text-editor-*-linux-x86_64.tar.gz
 
+      - name: Verify GoreeCloud first launch cannot migrate upstream Quiet.md notes
+        if: steps.filter.outputs.skip != 'true'
+        run: python3 -B scripts/smoke-linux-default-library.py dist/linux/goreecloud-rich-text-editor-*-x86_64.AppImage
+
       - name: Verify desktop metadata and packaged external Markdown opening
         if: steps.filter.outputs.skip != 'true'
         run: |

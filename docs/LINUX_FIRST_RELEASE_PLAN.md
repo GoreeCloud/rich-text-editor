@@ -17,6 +17,13 @@ Run Rust tests and Clippy; package both the AppImage and portable tarball;
 verify SHA-256 sidecars, license notices, runtime dependency reports, and
 real GUI startup of **both** the AppImage and the packaged tarball binary
 under an isolated Linux X11 session.
+The AppImage first-launch isolation smoke also starts the real packaged
+application with a disposable `HOME` and no library override, while
+planting a fake existing `~/Documents/Quiet.md` library. It verifies
+GoreeCloud creates its own Documents library and onboarding guides without
+reading, moving, rewriting or modifying the old source library. The
+test never accesses the operator's actual home directory.
+
 The Linux package smoke also opens an **external Unicode/space-containing
 Markdown filename directly through each shipped executable**, verifies an
 in-place library index association, leaves its bytes/mtime intact, and

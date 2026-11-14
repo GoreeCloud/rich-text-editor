@@ -67,6 +67,8 @@ checks = {
     "real Linux tarball executable smoke in CI": "scripts/smoke-linux-tarball.sh dist/linux/" in read(".github/workflows/ci.yml") and "scripts/smoke-linux-appimage.sh" in read("scripts/smoke-linux-tarball.sh"),
     "Linux desktop-entry metadata has filename handoff": "Exec=goreecloud_rich_text_editor %F" in read("packaging/linux/com.goreecloud.richtexteditor.desktop") and "Categories=Office;TextEditor;" in read("packaging/linux/com.goreecloud.richtexteditor.desktop"),
     "Linux CI validates desktop entry": "desktop-file-validate packaging/linux/com.goreecloud.richtexteditor.desktop" in read(".github/workflows/ci.yml"),
+    "Linux CI isolates first-run library from Quiet.md": "scripts/smoke-linux-default-library.py dist/linux/" in read(".github/workflows/ci.yml"),
+    "first-run GUI smoke refuses legacy migration": 'GOREECLOUD_RTE_HOME' in read("scripts/smoke-linux-default-library.py") and 'First run added/renamed files in legacy Quiet.md library' in read("scripts/smoke-linux-default-library.py"),
     "Linux CI checks external file through shipped packages": read(".github/workflows/ci.yml").count("scripts/smoke-linux-packaged-open.py dist/linux/") == 2,
     "packaged-file opening rejects non-Markdown sources": "Non-Markdown command-line file was modified" in read("scripts/smoke-linux-packaged-open.py") and "External Markdown was copied into the notes library" in read("scripts/smoke-linux-packaged-open.py"),
     "Linux tarball smoke streams only application member": 'tar -xOzf "$archive"' in read("scripts/smoke-linux-tarball.sh"),
