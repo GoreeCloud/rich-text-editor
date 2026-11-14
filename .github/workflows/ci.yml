@@ -249,6 +249,13 @@ jobs:
         if: steps.filter.outputs.skip != 'true'
         run: python3 scripts/check.py
 
+      - name: Exercise real editor create-edit-save-reopen in isolated X11
+        if: steps.filter.outputs.skip != 'true'
+        run: |
+          cargo build --release --locked --features devtools --bin goreecloud_rich_text_editor
+          python3 -B scripts/smoke-linux-editor.py target/release/goreecloud_rich_text_editor
+          python3 -B scripts/smoke-linux-editor.py target/release/goreecloud_rich_text_editor --markdown
+
       - name: Verify Linux package
         if: steps.filter.outputs.skip != 'true'
         run: scripts/package-linux.sh

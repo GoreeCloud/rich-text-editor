@@ -90,6 +90,20 @@ transfer to the validated manifest size. A detached minisign signature and
 matching trusted comment remain mandatory for the actual payload.
 These limits are exercised in Rust tests without contacting a network.
 
+## Linux interactive editing regression
+
+Linux CI now builds an explicitly **devtools-only** binary and launches it
+in two temporary Xvfb sessions using isolated HOME/XDG directories and a
+unique notes library. A synthetic GPUI left click establishes editor focus,
+Ctrl+N creates a rich-text note, typing changes both its title and body, and
+the test waits for save. It verifies the serialized note contains distinct
+title and body tokens, reopens the same library in a new process and checks
+the file's SHA-256 remains identical. The script bounds diagnostics,
+terminates its own process group, and deletes the temporary library only
+after success. This is an editor persistence regression test, **not** proof
+of final rendering quality, real keyboard accessibility, PDF printing, or
+signed Windows/macOS releases.
+
 ## Distribution upload preflight
 
 Before any real release upload, the publisher now checks every input, refuses
@@ -103,11 +117,19 @@ rollouts atomic. Offline dry-run tests exercise positive and adversarial
 publishing scenarios on both macOS and Linux CI runners. No release signing
 keys or host have been configured.
 
+
 Optional remote-image fetching also uses `curl -q` as its first argument so existing user `.curlrc` settings cannot silently override TLS verification, network protocols, or transfer limits. This is checked by the web-image Rust test and rebrand guard.
 
 Windows remote-image fetching streams through a Rust-opened local file rather than passing the cache path as a curl.exe output argument; this protects Unicode user-folder paths and suppresses curl console flashes. The Rust integration test fetches an original PNG from an in-process 127.0.0.1 server into a Unicode file, with no outside network access.
 
 Windows Unicode-path remote image downloads explicitly request curl binary stdout (`--output -`) and let Rust write the decoded cache path natively. This avoids code-page corruption in file arguments and the binary-output fallback on Windows.
+
+The isolated Linux X11 acceptance suite now exercises both the app's normal
+rich-text document format and a second disposable library configured for
+Markdown. It opens the actual GUI, creates a note via Ctrl+N, types the title
+and body (including Unicode for Markdown), closes and reopens the process,
+and checks persisted bytes and the Markdown title index. This does not
+establish Windows/macOS GUI round-trip or accessibility acceptance.
 
 The optional upstream Cloudflare analytics worker and backfill were removed
 from this derivative because they targeted Quiet.md infrastructure and have
