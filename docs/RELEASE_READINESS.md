@@ -78,3 +78,5 @@ matching trusted comment remain mandatory for the actual payload.
 These limits are exercised in Rust tests without contacting a network.
 
 Optional remote-image fetching also uses `curl -q` as its first argument so existing user `.curlrc` settings cannot silently override TLS verification, network protocols, or transfer limits. This is checked by the web-image Rust test and rebrand guard.
+
+Windows remote-image fetching streams through a Rust-opened local file rather than passing the cache path as a curl.exe output argument; this protects Unicode user-folder paths and suppresses curl console flashes. The Rust integration test fetches an original PNG from an in-process 127.0.0.1 server into a Unicode file, with no outside network access.
