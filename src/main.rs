@@ -102,7 +102,7 @@ fn open_main_window(scripted: bool, cx: &mut App) {
             app_id: Some(crate::APP_ID.into()),
             window_decorations: if cfg!(target_os = "linux") { Some(WindowDecorations::Client) } else { None },
             titlebar: Some(TitlebarOptions {
-                title: Some("GoreeCloud Rich Text Editor".into()),
+                title: Some("GoreeCloud Notes".into()),
                 appears_transparent: cfg!(any(target_os = "macos", target_os = "windows")),
                 traffic_light_position: Some(point(px(20.), px(app::HEADER_H / 2. - 7.))),
             }),

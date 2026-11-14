@@ -7,10 +7,10 @@
 
 [Setup]
 AppId={{9F2435CA-0DE7-4553-957A-AE8F250E93C5}
-AppName=GoreeCloud Rich Text Editor
+AppName=GoreeCloud Notes
 AppVersion={#AppVersion}
-AppPublisher=GoreeCloud Rich Text Editor
-AppPublisherURL=https://github.com/GoreeCloud/rich-text-editor
+AppPublisher=GoreeCloud
+AppPublisherURL=https://github.com/GoreeCloud/notes
 DefaultDirName={localappdata}\Programs\goreecloud-rich-text-editor
 DisableDirPage=no
 DisableProgramGroupPage=yes
@@ -46,8 +46,8 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Messages]
 SelectDirLabel3=Choose an install folder. Your notes are stored separately.
-SelectTasksLabel2=Make GoreeCloud Rich Text Editor easier to reach.
-FinishedLabel=GoreeCloud Rich Text Editor is ready. A quiet place for your notes.
+SelectTasksLabel2=Make GoreeCloud Notes easier to reach.
+FinishedLabel=GoreeCloud Notes is ready. A quiet place for your notes.
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
@@ -59,8 +59,8 @@ Source: "..\..\LICENSE"; DestDir: "{app}"
 Source: "..\..\THIRD_PARTY.md"; DestDir: "{app}"
 
 [Icons]
-Name: "{userprograms}\GoreeCloud Rich Text Editor"; Filename: "{app}\goreecloud_rich_text_editor.exe"; WorkingDir: "{app}"
-Name: "{userdesktop}\GoreeCloud Rich Text Editor"; Filename: "{app}\goreecloud_rich_text_editor.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{userprograms}\GoreeCloud Notes"; Filename: "{app}\goreecloud_rich_text_editor.exe"; WorkingDir: "{app}"
+Name: "{userdesktop}\GoreeCloud Notes"; Filename: "{app}\goreecloud_rich_text_editor.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 ; "Open with" for Markdown files (not the default app): they are edited in place.
 [Registry]
@@ -73,7 +73,7 @@ Root: HKA; Subkey: "Software\Classes\Applications\goreecloud_rich_text_editor.ex
 Root: HKA; Subkey: "Software\Classes\Applications\goreecloud_rich_text_editor.exe\SupportedTypes"; ValueType: string; ValueName: ".markdown"; ValueData: ""
 
 [Run]
-Filename: "{app}\goreecloud_rich_text_editor.exe"; Description: "Launch GoreeCloud Rich Text Editor"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\goreecloud_rich_text_editor.exe"; Description: "Launch GoreeCloud Notes"; Flags: nowait postinstall skipifsilent
 ; The in-app updater installs silently with /UPDATE=1 and expects the app back afterwards.
 Filename: "{app}\goreecloud_rich_text_editor.exe"; Flags: nowait; Check: IsUpdate
 
@@ -85,5 +85,5 @@ end;
 
 procedure InitializeWizard;
 begin
-  WizardForm.Caption := 'GoreeCloud Rich Text Editor';
+  WizardForm.Caption := 'GoreeCloud Notes';
 end;

@@ -392,7 +392,7 @@ fn sample_page(t: &themes::Theme, s: f32) -> Div {
     let chip = |s: &'static str| div().px(sc(st.num("code.pad")).max(px(2.))).rounded(sc(st.num("code.radius"))).bg(st.color("code.bg").unwrap_or_else(|| st.token("code_chip")))
         .border_1().border_color(st.color("code.border").unwrap_or_else(|| st.token("code_chip_border"))).font_family(mono.clone()).text_color(st.color("code.color").unwrap_or(text)).child(s);
     let para = p(div().flex().flex_wrap().items_center())
-        .child(tr("GoreeCloud Rich Text Editor 是一款", "GoreeCloud Rich Text Editor is a "))
+        .child(tr("GoreeCloud Notes 是一款", "GoreeCloud Notes is a "))
         .child(div().font_weight(FontWeight(st.num("strong.weight"))).text_color(st.color("strong.color").unwrap_or(text)).child(tr("安静的本地笔记应用", "quiet, local notes app")))
         .child(tr("，", ", "))
         .child(tr("文档就是电脑上的文件。", "your notes are files. "))
@@ -417,7 +417,7 @@ fn sample_page(t: &themes::Theme, s: f32) -> Div {
         .child(p(div()).child(label).when(done, |d| d.text_color(st.color("done.color").unwrap_or_else(|| st.token("todo_done"))).when(st.flag("done.strike"), |d| d.line_through())));
     let quote = div().flex().gap(sc((st.num("quote.indent") - st.num("quote.bar")).max(4.)))
         .child(div().flex_none().w(sc(st.num("quote.bar")).max(px(1.))).rounded(px(1.)).bg(st.color("quote.bar-color").unwrap_or_else(|| st.token("quote_bar"))))
-        .child(p(div()).text_color(st.color("quote.color").unwrap_or(text)).when(st.flag("quote.italic"), |d| d.italic()).child(tr("每一篇指南都是用 GoreeCloud Rich Text Editor 写成的，放心修改。", "Every guide is written in GoreeCloud Rich Text Editor. Edit them freely.")));
+        .child(p(div()).text_color(st.color("quote.color").unwrap_or(text)).when(st.flag("quote.italic"), |d| d.italic()).child(tr("每一篇指南都是用 GoreeCloud Notes 写成的，放心修改。", "Every guide is written in GoreeCloud Notes. Edit them freely.")));
     let callout = div().px(sc(st.num("callout.pad-x"))).py(sc(st.num("callout.pad-y"))).rounded(sc(st.num("callout.radius")))
         .bg(st.named("callout", "light-yellow").unwrap_or_else(|| st.token("code_chip")))
         .when(st.num("callout.border") > 0., |d| d.border(sc(st.num("callout.border")).max(px(1.))).border_color(st.named("border", "yellow").unwrap_or_else(|| st.token("code_chip_border"))))
@@ -874,7 +874,7 @@ impl Workspace {
     fn about_page(&self, cx: &mut Context<Self>) -> AnyElement {
         div().w_full().flex().flex_col().gap(px(28.)).child(div().w_full().pt(px(24.)).flex().flex_col().items_center().gap(px(10.))
             .child(img(about_icon()).size(px(88.)))
-            .child(div().text_size(px(20.)).line_height(px(26.)).font_weight(FontWeight::SEMIBOLD).child("GoreeCloud Rich Text Editor"))
+            .child(div().text_size(px(20.)).line_height(px(26.)).font_weight(FontWeight::SEMIBOLD).child("GoreeCloud Notes"))
             .child(div().text_size(px(theme::ui_font())).line_height(px(theme::ui_font() + 5.)).text_color(Theme::text_caption()).child(format!("{} {}", tr("版本", "Version"), env!("CARGO_PKG_VERSION"))))
             .child(div().text_size(px(theme::ui_font())).line_height(px(theme::ui_font() + 7.)).text_color(Theme::text_caption()).child(tr("本地优先的笔记应用：无需账号，文档就是你电脑上的文件。", "Local-first notes: no account, your documents are files on your Mac."))))
             .child(group(None, vec![update_row(cx).into_any_element()]))
@@ -890,10 +890,10 @@ pub(crate) fn update_pill(cx: &mut Context<Workspace>) -> Option<AnyElement> {
     use crate::update::State;
     let state = crate::update::state(cx);
     let (label, tip) = match &state {
-        State::Available(m) => (tr("更新", "Update").to_string(), crate::localized_format!("下载 GoreeCloud Rich Text Editor {}", "Download GoreeCloud Rich Text Editor {}", m.version)),
+        State::Available(m) => (tr("更新", "Update").to_string(), crate::localized_format!("下载 GoreeCloud Notes {}", "Download GoreeCloud Notes {}", m.version)),
         State::Downloading(m) => (format!("{:.0}%", crate::update::progress(m) * 100.), crate::localized_format!("正在下载 {}…", "Downloading {}…", m.version)),
         State::Ready(m, _) => (tr("重启更新", "Restart").to_string(), crate::localized_format!("重启后更新到 {}，打开的文档会先保存", "Restart into {}; open documents are saved first", m.version)),
-        State::Installing(m) => (tr("即将更新", "Updating").to_string(), crate::localized_format!("GoreeCloud Rich Text Editor 退出后安装 {}", "{} installs when GoreeCloud Rich Text Editor quits", m.version)),
+        State::Installing(m) => (tr("即将更新", "Updating").to_string(), crate::localized_format!("GoreeCloud Notes 退出后安装 {}", "{} installs when GoreeCloud Notes quits", m.version)),
         _ => return None,
     };
     let fill = if let State::Downloading(m) = &state { Some(crate::update::progress(m)) } else { None };
@@ -919,11 +919,11 @@ fn update_row(cx: &mut Context<Workspace>) -> Div {
         State::Idle => (tr("软件更新", "Software update").into(), None),
         State::Unsupported => (tr("软件更新", "Software update").into(), desc(tr("这个版本不能自动更新，请从网站下载新版本。", "This copy cannot update itself. Download new versions from the website."))),
         State::Checking => (tr("正在检查更新…", "Checking for updates…").into(), None),
-        State::Current => (tr("已是最新版本", "GoreeCloud Rich Text Editor is up to date").into(), None),
+        State::Current => (tr("已是最新版本", "GoreeCloud Notes is up to date").into(), None),
         State::Available(m) => (crate::localized_format!("新版本 {} 可用", "Version {} is available", m.version).into(), None),
         State::Downloading(m) => (crate::localized_format!("正在下载 {}… {:.0}%", "Downloading {}… {:.0}%", m.version, crate::update::progress(m) * 100.).into(), None),
-        State::Ready(m, _) => (crate::localized_format!("{} 已准备好", "{} is ready to install", m.version).into(), desc(tr("重启后完成更新，打开的文档会先保存。", "GoreeCloud Rich Text Editor restarts to finish; open documents are saved first."))),
-        State::Installing(m) => (crate::localized_format!("{} 将在退出后安装", "{} installs when GoreeCloud Rich Text Editor quits", m.version).into(), None),
+        State::Ready(m, _) => (crate::localized_format!("{} 已准备好", "{} is ready to install", m.version).into(), desc(tr("重启后完成更新，打开的文档会先保存。", "GoreeCloud Notes restarts to finish; open documents are saved first."))),
+        State::Installing(m) => (crate::localized_format!("{} 将在退出后安装", "{} installs when GoreeCloud Notes quits", m.version).into(), None),
         State::Failed(e) => (tr("更新失败", "Update failed").into(), Some(e.clone().into())),
     };
     let control = match &state {
@@ -1217,7 +1217,7 @@ pub(crate) fn localize(text: &str, english: bool) -> &str {
         "重试" => "Retry",
         "不再提示" => "Do not ask again",
         "放弃修改" => "Discard changes",
-        "GoreeCloud Rich Text Editor · 快速笔记" => "GoreeCloud Rich Text Editor · Quick note",
+        "GoreeCloud Notes · 快速笔记" => "GoreeCloud Notes · Quick note",
         "没有匹配结果，换个关键词试试吧" => "No results. Try another search term.",
         "本文被以下文档所引用" => "Referenced by these documents",
         "隐藏引用列表" => "Hide references",
@@ -1408,7 +1408,7 @@ pub(crate) fn localize(text: &str, english: bool) -> &str {
         "刚刚" => "just now",
         "文档不存在" => "Document not found",
         "文档已被另一个实例修改，未覆盖磁盘内容。请另存副本或重新载入磁盘版本" => "Another instance modified this document. The file was not overwritten. Save a copy or reload the version on disk.",
-        "这个文档库由更新版本的 GoreeCloud Rich Text Editor 创建，部分内容可能无法正确显示，请升级后再编辑" => "These documents were created by a newer version of GoreeCloud Rich Text Editor. Update the app before editing them.",
+        "这个文档库由更新版本的 GoreeCloud Notes 创建，部分内容可能无法正确显示，请升级后再编辑" => "These documents were created by a newer version of GoreeCloud Notes. Update the app before editing them.",
         _ => text,
     }
 }

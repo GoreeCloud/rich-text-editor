@@ -1,6 +1,6 @@
 // Optional GoreeCloud source-preview redirect to the independent public repo.
 // This does not collect analytics, proxy downloads, or contact Quiet.md hosts.
-const TARGET = "https://github.com/GoreeCloud/rich-text-editor";
+const TARGET = "https://github.com/GoreeCloud/notes";
 
 export default {
   fetch() {

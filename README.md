@@ -1,8 +1,8 @@
-# GoreeCloud Rich Text Editor
+# GoreeCloud Notes
 
 **A local-first desktop notes app, Markdown editor, Markdown viewer, and rich-text text editor.**
 
-GoreeCloud Rich Text Editor is a rebranded import of the open-source [Quiet.md](https://github.com/s1dashu/quiet-md) project, built with Rust and GPUI. **Linux x64 is the first release target.** Windows x64 remains CI-tested, with public distribution deferred until native GUI acceptance is possible. macOS remains a validation-only target for now. Windows or Apple hardware/signing credentials do not block Linux.
+GoreeCloud Notes is a rebranded import of the open-source [Quiet.md](https://github.com/s1dashu/quiet-md) project, built with Rust and GPUI. **Linux x64 is the first release target.** Windows x64 remains CI-tested, with public distribution deferred until native GUI acceptance is possible. macOS remains a validation-only target for now. Windows or Apple hardware/signing credentials do not block Linux.
 
 > **Status: source import / beta.** This repository does not yet publish GoreeCloud installers or automatic updates. Do not use the upstream Quiet.md release packages as GoreeCloud builds.
 
@@ -20,10 +20,10 @@ GoreeCloud Rich Text Editor is a rebranded import of the open-source [Quiet.md](
 
 The application supports Markdown documents and Feishu/Lark DocxXML documents. **Not all notes are stored as Markdown by default**; the underlying library can store DocxXML, while Markdown files can be edited directly. Files stay local by default. **Web images are not fetched automatically in new libraries**; you can enable remote images in Settings or load an individual image explicitly. Remote image transfers are limited to HTTP(S) and 20 MiB.
 
-The rebranded application's default library location is:
+The existing application's default library location is retained for upgrade compatibility:
 - `~/Documents/GoreeCloud Rich Text Editor` (where the Documents directory is available).
 
-Set `GOREECLOUD_RTE_HOME` to use a different library. This separate location is intentional: it avoids accidentally reusing or modifying an existing Quiet.md library.
+`GOREECLOUD_RTE_HOME` continues to select an alternative library. Do not rename, move, or delete existing notes automatically: **the GoreeCloud Notes display-name change does not migrate user data**, and the legacy on-disk directory and executable identifiers intentionally remain compatible. See [rename migration](docs/NOTES_RENAME_MIGRATION.md). This separate location avoids reusing or modifying an existing Quiet.md library.
 
 ## Build from source
 
@@ -44,7 +44,7 @@ See [Release readiness](docs/RELEASE_READINESS.md) and the [release operator run
 - Source: [s1dashu/quiet-md](https://github.com/s1dashu/quiet-md), `main`
 - Imported upstream commit: `fa62760d1ca1753608c5bda4e89df0a435476594` (2026-11-13)
 - Import type: **Rebranded Import**
-- Product name: **GoreeCloud Rich Text Editor**
+- Product name: **GoreeCloud Notes**
 
 The upstream project's MIT copyright and permission notice are preserved in [LICENSE](LICENSE). Third-party notices are preserved in [THIRD_PARTY.md](THIRD_PARTY.md). The original separately licensed Nucleo app-shell icons were replaced with ISC-licensed Lucide icons, and the app icon was replaced with an original GoreeCloud monogram. Read [UPSTREAM.md](UPSTREAM.md) for details.
 
