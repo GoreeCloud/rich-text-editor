@@ -130,3 +130,15 @@ Markdown. It opens the actual GUI, creates a note via Ctrl+N, types the title
 and body (including Unicode for Markdown), closes and reopens the process,
 and checks persisted bytes and the Markdown title index. This does not
 establish Windows/macOS GUI round-trip or accessibility acceptance.
+
+The optional upstream Cloudflare analytics worker and backfill were removed
+from this derivative because they targeted Quiet.md infrastructure and have
+no role in the local-first application. The `services/stats` directory retains
+only a retirement explanation and link to the historical upstream source.
+The optional contributor-avatar generator defaults to the independent
+GoreeCloud GitHub repository.
+
+Unreferenced promotional screenshots and background images imported from the
+upstream static site were removed as well. The independent GoreeCloud logo,
+icon, and active source-preview HTML were retained; runtime app resources
+and historical release notes remain unchanged.
