@@ -2312,6 +2312,10 @@ mod tests {
             loop {
                 match listener.accept() {
                     Ok((mut stream, _)) => {
+                        // Windows accepted sockets can inherit nonblocking mode
+                        // from the listener. The bounded fixture should wait
+                        // for curl's complete request, not panic on WSAEWOULDBLOCK.
+                        stream.set_nonblocking(false).unwrap();
                         stream.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
                         // A single TCP read need not contain the entire GET
                         // request. Responding and dropping the socket while
@@ -2321,7 +2325,19 @@ mod tests {
                         let mut request = Vec::with_capacity(2048);
                         let mut chunk = [0u8; 2048];
                         loop {
-                            let n = stream.read(&mut chunk).unwrap();
+                            let n = match stream.read(&mut chunk) {
+                                Ok(n) => n,
+                                Err(e) if matches!(e.kind(),
+                                    std::io::ErrorKind::WouldBlock |
+                                    std::io::ErrorKind::TimedOut |
+                                    std::io::ErrorKind::Interrupted) => {
+                                    assert!(Instant::now() < deadline,
+                                        "local curl fixture timed out reading HTTP headers");
+                                    std::thread::sleep(Duration::from_millis(10));
+                                    continue;
+                                }
+                                Err(e) => panic!("local curl fixture read failed: {e}"),
+                            };
                             assert!(n != 0, "local curl fixture closed before HTTP headers");
                             request.extend_from_slice(&chunk[..n]);
                             assert!(request.len() <= 8192, "unexpected oversized curl request headers");
