@@ -59,6 +59,14 @@ scripts/check.sh
 
 The app's core note engine supports both Markdown files and Feishu/Lark DocxXML documents. This project should not claim that every note is stored as Markdown.
 
+The Linux GUI regression additionally opens a local Markdown file through the
+application command line using a filename with **Unicode and spaces**. It
+verifies that the external source bytes and modification timestamp are
+unchanged, the file is linked in the library rather than copied, unrelated
+non-Markdown command-line files are ignored, and the same local-file record
+survives closing/reopening the app. Editing an existing external file and
+printing/export still require separate native acceptance.
+
 ## Import hardening checks
 
 The static public landing page intentionally contains no downloadable package links until GoreeCloud releases exist. The updater uses the reserved `https://updates.invalid/` placeholder and an unconfigured public-key file; both must be replaced with GoreeCloud-owned infrastructure before explicitly enabling updates. Reusing upstream signing keys or download domains is prohibited.
