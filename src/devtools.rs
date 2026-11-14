@@ -554,20 +554,22 @@ fn mouse_step(view: usize, cmd: &str, n: &[f32]) -> bool {
 
 fn run(cmd: &str, rest: &str, window: &mut Window, cx: &mut App) {
     match cmd {
-        // Synthesized right-button NSEvents report buttonNumber 0, so GPUI would
-        // read them as left clicks; feed the right click to GPUI directly.
+        // Inject platform-independent mouse events into GPUI for scripted Linux
+        // and Windows QA. On macOS, physical mouse events are dispatched via
+        // mouse_step first; a synthetic right-click avoids NSResponder quirks.
         "forget-uploads" => eprintln!("devtools: forgot {} uploads", crate::editor::image::forget_uploads(window, cx)),
-        "rclick" => {
+        "rclick" | "click" => {
             let n = nums(rest);
             if n.len() >= 2 {
                 let position = point(px(n[0]), px(n[1]));
+                let button = if cmd == "click" { MouseButton::Left } else { MouseButton::Right };
                 let modifiers = Modifiers::default();
                 window.dispatch_event(PlatformInput::MouseMove(MouseMoveEvent { position, pressed_button: None, modifiers }), cx);
                 window.dispatch_event(
-                    PlatformInput::MouseDown(MouseDownEvent { button: MouseButton::Right, position, modifiers, click_count: 1, first_mouse: false }),
+                    PlatformInput::MouseDown(MouseDownEvent { button, position, modifiers, click_count: 1, first_mouse: false }),
                     cx,
                 );
-                window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button: MouseButton::Right, position, modifiers, click_count: 1 }), cx);
+                window.dispatch_event(PlatformInput::MouseUp(MouseUpEvent { button, position, modifiers, click_count: 1 }), cx);
             }
         }
         "key" => {
