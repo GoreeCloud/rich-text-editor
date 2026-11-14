@@ -106,7 +106,7 @@ pub fn init() {
 pub fn write(line: &str) {
     let bounded = limit_line(line);
     let n = bounded.len() as u64 + 1;
-    let can_emit = STDERR_USED.fetch_update(Ordering::Relaxed, Ordering::Relaxed,
+    let can_emit = STDERR_USED.try_update(Ordering::Relaxed, Ordering::Relaxed,
         |used| (used.saturating_add(n) <= MAX_STDERR_BYTES).then_some(used + n)).is_ok();
     if can_emit { eprintln!("{bounded}"); }
     let Some(state) = FILE.get() else { return };
