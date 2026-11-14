@@ -72,9 +72,15 @@ fn write_bounded<W: Write>(out: &mut W, used: &mut u64, line: &str) -> io::Resul
 /// A large existing log is truncated at startup, not renamed to an unlimited
 /// .old.log. Keep bounded diagnostics within the application's own directory.
 fn open_log(dir: PathBuf) -> io::Result<(LogFile, PathBuf)> {
-    std::fs::create_dir_all(&dir)?;
+    crate::store::create_private_dir_all(&dir)?;
     let p = dir.join("goreecloud-rich-text-editor.log");
-    let file = OpenOptions::new().create(true).append(true).open(&p)?;
+    let mut options = OpenOptions::new();
+    options.create(true).append(true);
+    #[cfg(unix)] {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let file = options.open(&p)?;
     let mut len = file.metadata()?.len();
     if len >= MAX_FILE_BYTES {
         file.set_len(0)?;

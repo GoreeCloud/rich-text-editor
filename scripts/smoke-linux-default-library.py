@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import stat
 from pathlib import Path
 import shutil
 import signal
@@ -57,7 +58,8 @@ def main() -> int:
             proc = subprocess.Popen(
                 ["xvfb-run", "-a", "-s", "-screen 0 1280x800x24", str(app)],
                 env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT, start_new_session=True)
+                stderr=subprocess.STDOUT, start_new_session=True,
+                preexec_fn=lambda: os.umask(0))
             written = [0]
 
             def drain() -> None:
@@ -93,6 +95,26 @@ def main() -> int:
                     raise AssertionError("First run added/renamed files in legacy Quiet.md library")
                 if len(list((newlib / "docs").glob("*.xml"))) < 10:
                     raise AssertionError("Missing independent GoreeCloud onboarding documents")
+                # Security regression: run the actual packaged executable with
+                # umask 000, not only in-memory store unit tests.
+                stack = [newlib]
+                while stack:
+                    current = stack.pop()
+                    info = current.lstat()
+                    if stat.S_ISLNK(info.st_mode):
+                        raise AssertionError("Symlink in first-launch library")
+                    if stat.S_ISDIR(info.st_mode):
+                        if stat.S_IMODE(info.st_mode) != 0o700:
+                            raise AssertionError("Non-private first-launch directory")
+                        stack.extend(current.iterdir())
+                    elif stat.S_ISREG(info.st_mode):
+                        if stat.S_IMODE(info.st_mode) != 0o600:
+                            raise AssertionError("Non-private first-launch file")
+                    else:
+                        raise AssertionError("Unexpected first-launch path type")
+                managed_log = root / "logs" / "goreecloud-rich-text-editor.log"
+                if not managed_log.is_file() or stat.S_IMODE(managed_log.stat().st_mode) != 0o600:
+                    raise AssertionError("Application log must be owner-readable only")
             finally:
                 try:
                     os.killpg(proc.pid, signal.SIGTERM)
