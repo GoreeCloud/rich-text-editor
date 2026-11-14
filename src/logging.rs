@@ -74,7 +74,7 @@ fn write_bounded<W: Write>(out: &mut W, used: &mut u64, line: &str) -> io::Resul
 fn open_log(dir: PathBuf) -> io::Result<(LogFile, PathBuf)> {
     std::fs::create_dir_all(&dir)?;
     let p = dir.join("goreecloud-rich-text-editor.log");
-    let mut file = OpenOptions::new().create(true).append(true).open(&p)?;
+    let file = OpenOptions::new().create(true).append(true).open(&p)?;
     let mut len = file.metadata()?.len();
     if len >= MAX_FILE_BYTES {
         file.set_len(0)?;
