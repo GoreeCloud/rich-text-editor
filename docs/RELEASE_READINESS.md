@@ -61,3 +61,18 @@ The [release operations runbook](RELEASE_OPERATIONS.md) contains platform-specif
 The existing Linux desktop has been visually checked on a real hardware-backed desktop using a **disposable isolated notes library** and an app-only screenshot. The sidebar, text, document cards and images rendered; this does not replace full interaction, printing, accessibility or macOS/Windows installation tests. No signing certificates or notarization credentials have been connected, and the update channel remains disabled.
 
 The Linux real-AppImage smoke also bounds diagnostic output and reaps any extracted child process that inherited the unique disposable library marker, even if the AppImage launcher exits first. The test was validated against both a good package and the original broken launcher, with no leftover process or disk-space growth.
+
+
+## Pre-activation updater protocol hardening
+
+Automatic updates are still disabled. When the channel is eventually enabled,
+release builds ignore the development-only GOREECLOUD_RTE_UPDATE_URL environment
+override. Local development/test builds may point only at HTTP loopback ports;
+arbitrary hosts, files and remote HTTP overrides are not valid. The manifest
+must refer to the **exact** versioned GoreeCloud package URL, including the
+three-part numeric version and correct platform. The curl client disables
+user ~/.curlrc, allows only HTTPS in production (including redirects), limits
+redirect count, restricts feed manifests to 64 KiB, and caps package download
+transfer to the validated manifest size. A detached minisign signature and
+matching trusted comment remain mandatory for the actual payload.
+These limits are exercised in Rust tests without contacting a network.
