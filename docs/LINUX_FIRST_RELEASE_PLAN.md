@@ -40,8 +40,11 @@ manifest. Never expose a private key in Git, logs, or chat.
 Automatic updates remain disabled until signed updates, failed downloads,
 and rollback/recovery are tested on disposable Linux libraries.
 
-Linux CI runs real minisign signing/verification tests using **ephemeral,
-unencrypted test-only private keys** inside disposable test directories,
+Linux CI installs a checksum-pinned official static minisign executable
+into a disposable GitHub Actions directory because Ubuntu 22.04 does not
+include a minisign apt package. It runs real minisign signing/verification
+tests using **ephemeral, unencrypted test-only private keys** inside
+disposable test directories,
 including signature replay and a changed payload with a recomputed SHA-256
 sidecar. Those test keys are destroyed after testing and must **never** be
 used to authorize a public GoreeCloud release; a genuine owner-controlled

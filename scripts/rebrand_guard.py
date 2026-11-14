@@ -85,6 +85,8 @@ checks = {
     "tarball does not alter AppImage updater feed": 'if [ "$platform" = linux-x86_64-tar ]; then' in read("scripts/publish-downloads.sh"),
     "publisher cryptographically checks both Linux formats": '[[ "$platform" == linux-x86_64* ]]' in read("scripts/publish-downloads.sh"),
     "tarball audit rejects dangerous members": 'not (item.isfile() or item.isdir())' in read("scripts/audit-release-artifacts.py") and 'PurePosixPath(name).parts' in read("scripts/audit-release-artifacts.py"),
+    "Linux minisign CLI bootstrapped with pinned official checksum": '9a599b48ba6eb7b1e80f12f36b94ceca7c00b7a5173c95c3efc88d9822957e73' in read("scripts/install-minisign-ci.sh") and "scripts/install-minisign-ci.sh" in read(".github/workflows/ci.yml"),
+    "Linux minisign archive extracts only static verifier": 'tar -xOzf "$archive" minisign-linux/x86_64/minisign' in read("scripts/install-minisign-ci.sh"),
     "Linux CI uses disposable minisign test keys": "scripts/test_linux_minisign.py" in read(".github/workflows/ci.yml") and "minisign" in read(".github/workflows/ci.yml"),
     "Linux minisign rehearsal rejects signature replay": "test_appimage_signature_cannot_be_replayed_for_tarball" in read("scripts/test_linux_minisign.py"),
     "Linux minisign rehearsal rejects rehashed tampering": "test_checksum_replaced_on_tampered_payload_still_fails_signature" in read("scripts/test_linux_minisign.py"),
