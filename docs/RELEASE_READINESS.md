@@ -90,7 +90,6 @@ transfer to the validated manifest size. A detached minisign signature and
 matching trusted comment remain mandatory for the actual payload.
 These limits are exercised in Rust tests without contacting a network.
 
-
 ## Linux interactive editing regression
 
 Linux CI now builds an explicitly **devtools-only** binary and launches it
@@ -104,3 +103,9 @@ terminates its own process group, and deletes the temporary library only
 after success. This is an editor persistence regression test, **not** proof
 of final rendering quality, real keyboard accessibility, PDF printing, or
 signed Windows/macOS releases.
+
+Optional remote-image fetching also uses `curl -q` as its first argument so existing user `.curlrc` settings cannot silently override TLS verification, network protocols, or transfer limits. This is checked by the web-image Rust test and rebrand guard.
+
+Windows remote-image fetching streams through a Rust-opened local file rather than passing the cache path as a curl.exe output argument; this protects Unicode user-folder paths and suppresses curl console flashes. The Rust integration test fetches an original PNG from an in-process 127.0.0.1 server into a Unicode file, with no outside network access.
+
+Windows Unicode-path remote image downloads explicitly request curl binary stdout (`--output -`) and let Rust write the decoded cache path natively. This avoids code-page corruption in file arguments and the binary-output fallback on Windows.

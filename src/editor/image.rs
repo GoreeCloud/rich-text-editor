@@ -2059,15 +2059,24 @@ fn web_image_url(url: &str) -> bool {
     url.starts_with("https://") || url.starts_with("http://")
 }
 
-fn image_download_command(url: &str, dest: &Path) -> std::process::Command {
+fn image_download_command(url: &str) -> std::process::Command {
     let mut cmd = std::process::Command::new("curl");
-    cmd.args(["--fail", "--silent", "--show-error", "--location",
+    #[cfg(target_os = "windows")]
+    {
+        // Avoid a console flash while rendering images in the desktop app.
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x0800_0000);
+    }
+    // The first argument disables ~/.curlrc so user-level curl settings cannot
+    // disable TLS validation or alter the editor's bounded download behavior.
+    cmd.args(["-q", "--fail", "--silent", "--show-error", "--location",
         "--max-time", "60", "--connect-timeout", "10", "--max-redirs", "5",
         "--proto", "=http,https", "--proto-redir", "=http,https",
-        "--max-filesize", "20971520", "--output"]);
-    cmd.arg(dest).arg("--").arg(url);
+        // Explicit stdout output mode keeps binary images intact on Windows
+        // and still avoids passing a Unicode file path through curl.exe.
+        "--max-filesize", "20971520", "--noproxy", "localhost,127.0.0.1",
+        "--output", "-", "--"]).arg(url);
     cmd.stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null());
     cmd
 }
@@ -2078,9 +2087,15 @@ fn download(url: &str, dest: &Path) -> bool {
         let _ = std::fs::create_dir_all(d);
     }
     let tmp = dest.with_extension("part");
-    let fetched = image_download_command(url, &tmp)
-        .status()
-        .is_ok_and(|s| s.success());
+    // Let Rust open the cache path with native Unicode support. Passing the
+    // path directly as a curl.exe argument fails for many Windows ANSI code
+    // pages when the user folder contains non-ASCII characters.
+    let fetched = std::fs::File::create(&tmp).ok().and_then(|out| {
+        image_download_command(url)
+            .stdout(std::process::Stdio::from(out))
+            .status()
+            .ok()
+    }).is_some_and(|s| s.success());
     let ok = fetched
         && image::ImageReader::open(&tmp).ok().and_then(|r| r.with_guessed_format().ok()).and_then(|r| r.into_dimensions().ok()).is_some()
         && std::fs::rename(&tmp, dest).is_ok();
@@ -2239,7 +2254,7 @@ pub(crate) fn localize_pasted_images(blocks: &mut Vec<Block>) {
 
 #[cfg(test)]
 mod tests {
-    use super::{cap, clipboard_image_data, decode, image_download_command, web_image_url, BAD_DIMS};
+    use super::{cap, clipboard_image_data, decode, download, image_download_command, web_image_url, BAD_DIMS};
     use gpui::ImageFormat;
 
     fn photo(dir: &std::path::Path, w: u32, h: u32) -> std::path::PathBuf {
@@ -2251,15 +2266,15 @@ mod tests {
 
     #[test]
     fn remote_image_downloads_are_http_only_bounded_and_redirect_safe() {
-        let dest = std::path::Path::new("test.png.part");
         for url in ["file:///etc/passwd", "ftp://example.com/a.png", "data:image/png;base64,a"] {
             assert!(!web_image_url(url), "{url}");
         }
         for url in ["https://example.com/image.png", "http://localhost:3000/image.webp"] {
             assert!(web_image_url(url));
         }
-        let cmd = image_download_command("https://example.com/image.png", dest);
+        let cmd = image_download_command("https://example.com/image.png");
         let args: Vec<_> = cmd.get_args().map(|s| s.to_string_lossy().into_owned()).collect();
+        assert_eq!(args.first().map(String::as_str), Some("-q"));
         for (key, value) in [
             ("--proto", "=http,https"),
             ("--proto-redir", "=http,https"),
@@ -2267,10 +2282,62 @@ mod tests {
             ("--max-time", "60"),
             ("--max-redirs", "5"),
             ("--connect-timeout", "10"),
+            ("--noproxy", "localhost,127.0.0.1"),
         ] {
             assert!(args.windows(2).any(|pair| pair[0] == key && pair[1] == value), "{key}: {args:?}");
         }
-        assert_eq!(&args[args.len()-3..], &["test.png.part", "--", "https://example.com/image.png"]);
+        assert_eq!(&args[args.len()-2..], &["--", "https://example.com/image.png"]);
+        assert!(args.windows(2).any(|pair| pair[0] == "--output" && pair[1] == "-"), "curl must explicitly use binary stdout");
+        assert!(!args.iter().any(|arg| arg == "test.png.part" || arg == "photo 中文 with spaces.png"), "curl must not receive Unicode cache paths");
+    }
+
+    #[test]
+    fn remote_image_can_save_to_unicode_filename_without_exposing_path_to_curl() {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+        use std::time::{Duration, Instant};
+
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        listener.set_nonblocking(true).unwrap();
+
+        let pixel = image::RgbImage::from_pixel(1, 1, image::Rgb([11, 31, 51]));
+        let mut encoded = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgb8(pixel).write_to(&mut encoded, image::ImageFormat::Png).unwrap();
+        let png = encoded.into_inner();
+        let served = png.clone();
+
+        let server = std::thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(8);
+            loop {
+                match listener.accept() {
+                    Ok((mut stream, _)) => {
+                        stream.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+                        let mut request = [0u8; 2048];
+                        let _ = stream.read(&mut request);
+                        let response = format!("HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", served.len());
+                        stream.write_all(response.as_bytes()).unwrap();
+                        stream.write_all(&served).unwrap();
+                        return;
+                    }
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                        if Instant::now() >= deadline { panic!("local fixture server was not contacted"); }
+                        std::thread::sleep(Duration::from_millis(10));
+                    }
+                    Err(e) => panic!("local fixture server error: {e}"),
+                }
+            }
+        });
+
+        let root = std::env::temp_dir().join(format!("goreecloud-unicode-image-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&root).unwrap();
+        let dest = root.join("photo 中文 with spaces.png");
+        let ok = download(&format!("http://127.0.0.1:{port}/pixel.png"), &dest);
+        server.join().unwrap();
+        assert!(ok, "curl must stream an image into a Rust-opened Unicode file");
+        assert_eq!(std::fs::read(&dest).unwrap(), png);
+        assert!(!dest.with_extension("part").exists());
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
